@@ -20,9 +20,6 @@
 
 # See the README.md file for a summary of features.
 
-# Issue #161: do not load if not an interactive shell
-test -z "$TERM" -o "x$TERM" = xdumb && return
-
 if test -n "${BASH_VERSION-}"; then
     # Check for recent enough version of bash.
     if (( ${BASH_VERSINFO[0]:-0} < 3 || ( ${BASH_VERSINFO[0]:-0} == 3 && ${BASH_VERSINFO[1]:-0} < 2 ) )); then
@@ -1947,7 +1944,8 @@ prompt_OFF()
 }
 
 # By default, sourcing liquidprompt will activate Liquid Prompt
-if [ "${1-}" != "--no-activate" ]; then
+# Issue #161: do not load if not an interactive shell
+if [[ "${1-}" != "--no-activate" && "$-" == *i* && -n "${TERM-}" && "${TERM-}" != dumb ]]; then
     lp_activate
     prompt_on
 fi

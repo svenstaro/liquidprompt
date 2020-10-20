@@ -96,24 +96,6 @@ _lp_line_count() {
   count=${#var}
 }
 
-# Store $2 (or $?) as a true/false value in variable named $1
-# $? is propagated
-#   _lp_bool foo 5
-#   => foo=false
-#   _lp_bool foo 0
-#   => foo=true
-_lp_bool()
-{
-    local res=${2:-$?}
-    if (( res )); then
-        eval $1=false
-    else
-        eval $1=true
-    fi
-    return $res
-}
-
-
 ###############
 # OS specific #
 ###############
@@ -552,7 +534,7 @@ lp_activate() {
         # "sudo -n" is only supported from sudo 1.7.0
         if (( LP_ENABLE_SUDO )) \
                 && command -v sudo >/dev/null \
-                && LC_MESSAGES=C sudo -V | GREP_OPTIONS= \grep -qE '^Sudo version (1(\.([789]\.|[1-9][0-9])|[0-9])|[2-9])'
+                && LC_MESSAGES=C sudo -V | GREP_OPTIONS="" \grep -qE '^Sudo version (1(\.([789]\.|[1-9][0-9])|[0-9])|[2-9])'
         then
             LP_COLOR_MARK_NO_SUDO="$LP_COLOR_MARK"
             # Test the code with the commands:
@@ -1018,9 +1000,9 @@ _lp_hg_branch()
     # in a repository.
 
     local branch
-    branch="$(hg branch 2>/dev/null)"
-
-    (( $? == 0 )) && _lp_escape "$branch"
+    if branch="$(hg branch 2>/dev/null)"; then
+        _lp_escape "$branch"
+    fi
 }
 
 # Set a color depending on the branch state:
@@ -1219,9 +1201,9 @@ _lp_bzr_branch()
     # actually in a repository.
 
     local branch
-    branch="$(bzr nick 2> /dev/null)"
-    (( $? != 0 )) && return
-    _lp_escape "$branch"
+    if branch="$(bzr nick 2> /dev/null)"; then
+        _lp_escape "$branch"
+    fi
 }
 
 
@@ -1244,10 +1226,9 @@ _lp_bzr_branch_color()
     # actually in a repository.
 
     local branch revno clean IFS=' '
-    read branch revno clean <<<"$(bzr version-info --check-clean --custom --template='{branch_nick} {revno} {clean}' 2>/dev/null)"
-    (( $? != 0 )) && return
+    if read -r branch revno clean <<<"$(bzr version-info --check-clean --custom \
+        --template='{branch_nick} {revno} {clean}' 2>/dev/null)" && [[ -n "$branch" ]]; then
 
-    if [[ -n "$branch" ]]; then
         if (( clean == 0 )); then
             echo -nE "${LP_COLOR_CHANGES}${branch}${NO_COL}(${LP_COLOR_COMMITS}$revno${NO_COL})"
         else
@@ -1527,7 +1508,7 @@ _lp_temp_sensors()
     local IFS=$' \t\n'
     for i in $(sensors -u |
             sed -n 's/^  temp[0-9][0-9]*_input: \([0-9]*\)\..*$/\1/p'); do
-        (( $i > ${temperature:-0} )) && temperature=i
+        (( i > ${temperature:-0} )) && temperature=i
     done
 }
 
@@ -1539,7 +1520,7 @@ _lp_temp_acpi()
     # Only the integer part is retained
     for i in $(LC_ALL=C acpi -t |
             sed 's/.* \(-\?[0-9]*\)\.[0-9]* degrees C$/\1/p'); do
-        (( $i > ${temperature:-0} )) && temperature=i
+        (( i > ${temperature:-0} )) && temperature=i
     done
 }
 
@@ -1705,6 +1686,7 @@ _lp_set_prompt()
         LP_ERR=''     # Hidden
     fi
 
+    #TODO: unused?
     local GREP_OPTIONS=
 
     # bash: execute the old prompt hook
@@ -1886,7 +1868,7 @@ prompt_on()
         else # zsh
             LP_OLD_PROMPT_COMMAND=""
             _LP_ZSH_PROMPT_THEME=""
-            if [[ -n "$prompt_theme" && "$prompt_theme" != off ]]; then
+            if [[ -n "${prompt_theme-}" && "${prompt_theme-}" != off ]]; then
                 _LP_ZSH_PROMPT_THEME="$prompt_theme"
                 # Disable the prompt to disable its precmd hook
                 prompt off

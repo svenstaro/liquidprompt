@@ -649,8 +649,10 @@ lp_hostname() {
 
 _lp_get_home_tilde_collapsed()
 {
+    # Needs to be in a variable, as different versions of Bash treat '~' in a
+    # substitution differently
     local tilde="~"
-    echo "${PWD/#$HOME/$tilde}"
+    lp_work_dir="${PWD/#$HOME/$tilde}"
 }
 
 # Shorten the path of the current working directory
@@ -668,51 +670,53 @@ _lp_shorten_path()
         return
     fi
 
-    local ret=
+    local ret=""
 
-    local p="$(_lp_get_home_tilde_collapsed)"
+    local lp_work_dir
+    _lp_get_home_tilde_collapsed
+
     local mask="${LP_MARK_SHORTEN_PATH}"
     local -i max_len=$(( ${COLUMNS:-80} * LP_PATH_LENGTH / 100 ))
 
     if (( LP_PATH_KEEP == -1 )); then
         # only show the current directory, excluding any parent dirs
-        ret="${p##*/}" # discard everything up to and including the last slash
+        ret="${lp_work_dir##*/}" # discard everything up to and including the last slash
         [[ "${ret}" == "" ]] && ret="/" # if in root directory
-    elif (( ${#p} <= max_len )); then
-        ret="${p}"
+    elif (( ${#lp_work_dir} <= max_len )); then
+        ret="$lp_work_dir"
     elif (( LP_PATH_KEEP == 0 )); then
         # len is over max len, show as much of the tail as is allowed
-        ret="${p##*/}" # show at least complete current directory
-        p="${p:0:${#p} - ${#ret}}"
-        ret="${mask}${p:${#p} - (${max_len} - ${#ret} - ${#mask})}${ret}"
+        ret="${lp_work_dir##*/}" # show at least complete current directory
+        lp_work_dir="${lp_work_dir:0:${#lp_work_dir} - ${#ret}}"
+        ret="${mask}${lp_work_dir:${#lp_work_dir} - (${max_len} - ${#ret} - ${#mask})}${ret}"
     else
         # len is over max len, show at least LP_PATH_KEEP leading dirs and
         # current directory
-        local tmp="${p//\//}"
-        local -i delims=$(( ${#p} - ${#tmp} ))
+        local tmp="${lp_work_dir//\//}"
+        local -i delims=$(( ${#lp_work_dir} - ${#tmp} ))
 
         for (( dir=0; dir < LP_PATH_KEEP; dir++ )); do
             (( dir == delims )) && break
 
-            local left="${p#*/}"
-            local name="${p:0:${#p} - ${#left}}"
-            p="${left}"
+            local left="${lp_work_dir#*/}"
+            local name="${lp_work_dir:0:${#lp_work_dir} - ${#left}}"
+            lp_work_dir="${left}"
             ret+="${name%/}/"
         done
 
         if (( delims <= LP_PATH_KEEP )); then
             # no dirs between LP_PATH_KEEP leading dirs and current dir
-            ret+="${p##*/}"
+            ret+="${lp_work_dir##*/}"
         else
-            local base="${p##*/}"
+            local base="${lp_work_dir##*/}"
 
-            p="${p:0:${#p} - ${#base}}"
+            lp_work_dir="${lp_work_dir:0:${#lp_work_dir} - ${#base}}"
 
             [[ ${ret} != "/" ]] && ret="${ret%/}" # strip trailing slash
 
             local -i len_left=$(( max_len - ${#ret} - ${#base} - ${#mask} ))
 
-            ret+="${mask}${p:${#p} - ${len_left}}${base}"
+            ret+="${mask}${lp_work_dir:${#lp_work_dir} - ${len_left}}${base}"
         fi
     fi
     # Escape special chars
@@ -724,18 +728,19 @@ _lp_shorten_path()
 # Liquid Prompt can calculate this number under two conditions, path shortening
 # must be disabled and PROMPT_DIRTRIM must be already set.
 _lp_set_dirtrim() {
-    local p="$(_lp_get_home_tilde_collapsed)"
+    local lp_work_dir
+    _lp_get_home_tilde_collapsed
     local -i max_len="${COLUMNS:-80}*$LP_PATH_LENGTH/100"
     local -i dt=0
 
-    if (( ${#p} > max_len )); then
-        local q="/${p##*/}"
+    if (( ${#lp_work_dir} > max_len )); then
+        local q="/${lp_work_dir##*/}"
         local show="$q"
         # +3 because of the ellipsis: "..."
         while (( ${#show}+3 < max_len )); do
             (( dt++ ))
-            p="${p%$q}"
-            q="/${p##*/}"
+            lp_work_dir="${lp_work_dir%$q}"
+            q="/${lp_work_dir##*/}"
             show="$q$show"
         done
         (( dt == 0 )) && dt=1

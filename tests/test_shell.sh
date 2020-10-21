@@ -366,6 +366,12 @@ function test_integer {
   (( int = 0 ))
   assertFalse "Int assignment" $?
   assertFalse "Int false" "(( int ))"
+
+  int+=1
+  assertEquals "Int increment" 1 $int
+
+  int+=5
+  assertEquals "Int increment" 6 $int
 }
 
 function test_array {

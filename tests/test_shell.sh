@@ -383,6 +383,7 @@ function test_array {
   done
 
   assertEquals "whole array" "foo foo foo" "${array_a[*]}"
+  assertEquals "size of array" 3 "${#array_a[@]}"
 
   typeset -a array_b
   array_b[1]=foo
@@ -392,6 +393,7 @@ function test_array {
   assertEquals "array index element" "foo" "${array_b[1]}"
   assertEquals "array index element" "bar" "${array_b[2]}"
   assertEquals "array index element" "baz" "${array_b[5]}"
+  assertEquals "null array index element" "" "${array_b[3]}"
 }
 
 function test_source {

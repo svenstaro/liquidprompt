@@ -375,51 +375,18 @@ _lp_source_config()
     LP_DEBUG_TIME=${LP_DEBUG_TIME:-0}
 
 
-    local configfile
-
     # Default config file may be the XDG standard ~/.config/liquidpromptrc,
     # but heirloom dotfile has priority.
-
     if [[ -f "$HOME/.liquidpromptrc" ]]; then
-        configfile="$HOME/.liquidpromptrc"
+        source "$HOME/.liquidpromptrc"
     else
-        local first
-        local search
-        # trailing ":" is so that ${search#*:} always removes something
-        search="${XDG_CONFIG_HOME:-"$HOME/.config"}:${XDG_CONFIG_DIRS:-/etc/xdg}:"
-        while [[ -n "$search" ]]; do
-            first="${search%%:*}"
-            search="${search#*:}"
-            if [[ -f "$first/liquidpromptrc" ]]; then
-                configfile="$first/liquidpromptrc"
+        local dir
+        for dir in "${XDG_CONFIG_HOME:-"$HOME/.config"}" "${XDG_CONFIG_DIRS:-/etc/xdg}" "/etc"; do
+            if [[ -f "$dir/liquidpromptrc" ]]; then
+                source "$dir/liquidpromptrc"
                 break
             fi
         done
-    fi
-
-    if [[ -n "$configfile" ]]; then
-        source "$configfile"
-    elif [[ -f "/etc/liquidpromptrc" ]]; then
-        source "/etc/liquidpromptrc"
-    fi
-
-    # Delete this code in version 1.11
-    if [[ -n "${LP_COLORMAP_1-}" ]]; then
-        echo "liquidprompt: LP_COLORMAP_x variables are deprecated. Update your theme to use LP_COLORMAP array." >&2
-        LP_COLORMAP=(
-            "$LP_COLORMAP_0"
-            "$LP_COLORMAP_1"
-            "$LP_COLORMAP_2"
-            "$LP_COLORMAP_3"
-            "$LP_COLORMAP_4"
-            "$LP_COLORMAP_5"
-            "$LP_COLORMAP_6"
-            "$LP_COLORMAP_7"
-            "$LP_COLORMAP_8"
-            "$LP_COLORMAP_9"
-        )
-        unset LP_COLORMAP_0 LP_COLORMAP_1 LP_COLORMAP_2 LP_COLORMAP_3 LP_COLORMAP_4 \
-              LP_COLORMAP_5 LP_COLORMAP_6 LP_COLORMAP_7 LP_COLORMAP_8 LP_COLORMAP_9
     fi
 }
 

@@ -851,6 +851,12 @@ _lp_git_untracked_count() {
     (( lp_vcs_untracked_count ))
 }
 
+_lp_git_commits_off_remote() {
+    # The "@{upstream}" notation was added in Git 1.7.0, so this should work for everyone
+    IFS=$' \t' read lp_vcs_commit_behind lp_vcs_commit_ahead <<<"$(\git rev-list --count --left-right @{upstream}..HEAD 2>/dev/null)"
+    (( lp_vcs_commit_behind || lp_vcs_commit_ahead ))
+}
+
 # Set a color depending on the branch state:
 # - green if the repository is up to date
 # - yellow if there is some commits not pushed
@@ -876,26 +882,14 @@ _lp_git_branch_color()
         end="$LP_COLOR_COMMITS$LP_MARK_STASH$end"
     fi
 
-    local remote
-    remote="$(\git config --get branch.${branch}.remote 2>/dev/null)"
-
     local has_commit=""
-    local commit_ahead
-    local commit_behind
-    if [[ -n "$remote" ]]; then
-        local remote_branch
-        remote_branch="$(\git config --get branch.${branch}.merge)"
-        if [[ -n "$remote_branch" ]]; then
-            remote_branch=${remote_branch/refs\/heads/refs\/remotes\/$remote}
-            commit_ahead="$(\git rev-list --count $remote_branch..HEAD 2>/dev/null)"
-            commit_behind="$(\git rev-list --count HEAD..$remote_branch 2>/dev/null)"
-            if [[ "$commit_ahead" -ne "0" && "$commit_behind" -ne "0" ]]; then
-                has_commit="${LP_COLOR_COMMITS}+$commit_ahead${NO_COL}/${LP_COLOR_COMMITS_BEHIND}-$commit_behind${NO_COL}"
-            elif [[ "$commit_ahead" -ne "0" ]]; then
-                has_commit="${LP_COLOR_COMMITS}$commit_ahead${NO_COL}"
-            elif [[ "$commit_behind" -ne "0" ]]; then
-                has_commit="${LP_COLOR_COMMITS_BEHIND}-$commit_behind${NO_COL}"
-            fi
+    if _lp_git_commits_off_remote; then
+        if [[ "$lp_vcs_commit_ahead" -ne "0" && "$lp_vcs_commit_behind" -ne "0" ]]; then
+            has_commit="${LP_COLOR_COMMITS}+$lp_vcs_commit_ahead${NO_COL}/${LP_COLOR_COMMITS_BEHIND}-$lp_vcs_commit_behind${NO_COL}"
+        elif [[ "$lp_vcs_commit_ahead" -ne "0" ]]; then
+            has_commit="${LP_COLOR_COMMITS}$lp_vcs_commit_ahead${NO_COL}"
+        elif [[ "$lp_vcs_commit_behind" -ne "0" ]]; then
+            has_commit="${LP_COLOR_COMMITS_BEHIND}-$lp_vcs_commit_behind${NO_COL}"
         fi
     fi
 

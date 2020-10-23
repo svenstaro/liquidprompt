@@ -1248,9 +1248,9 @@ _lp_bzr_branch_color()
 
         _lp_escape "$branch"
         if (( clean == 0 )); then
-            echo -nE "${LP_COLOR_CHANGES}${ret}${NO_COL}(${LP_COLOR_COMMITS}$revno${NO_COL})"
+            lp_vcs_branch_color="${LP_COLOR_CHANGES}${ret}${NO_COL}(${LP_COLOR_COMMITS}$revno${NO_COL})"
         else
-            echo -nE "${LP_COLOR_UP}${ret}${NO_COL}(${LP_COLOR_COMMITS}$revno${NO_COL})"
+            lp_vcs_branch_color="${LP_COLOR_UP}${ret}${NO_COL}(${LP_COLOR_COMMITS}$revno${NO_COL})"
         fi
     else
         return 1
@@ -1340,7 +1340,7 @@ case "$LP_OS" in
             # no battery level found
             return 4
         fi
-        echo -nE "$bat"
+        lp_battery_level="$bat"
         # discharging
         if [[ "$acpi" == *"Discharging"* ]]; then
             # under => 0, above => 1
@@ -1366,12 +1366,12 @@ case "$LP_OS" in
             return 4
             ;;
             discharging)
-                echo -nE "$percent"
+                lp_battery_level="$percent"
                 # under => 0, above => 1
                 return $(( percent > LP_BATTERY_THRESHOLD ))
             ;;
             *)  # "charging", "AC attached"
-                echo -nE "$percent"
+                lp_battery_level="$percent"
                 # under => 2, above => 3
                 return $(( 2 + ( percent > LP_BATTERY_THRESHOLD ) ))
             ;;
@@ -1390,15 +1390,14 @@ _lp_battery_color()
 {
     local mark=$LP_MARK_BATTERY
     local chargingmark=$LP_MARK_ADAPTER
-    local -i bat ret
-    bat="$(_lp_battery)"
-    ret=$?
+    _lp_battery
+    local -i ret=$?
 
-    if (( ret == 4 || bat == 100 )); then
+    if (( ret == 4 || lp_battery_level == 100 )); then
         # no battery support or battery full: nothing displayed
         lp_batt_color=""
         return 1
-    elif (( ret == 3 && bat != 100 )); then
+    elif (( ret == 3 && lp_battery_level != 100 )); then
         # charging and above threshold and not 100%
         # green ⏚
         lp_batt_color="${LP_COLOR_CHARGING_ABOVE}$chargingmark${NO_COL}"
@@ -1415,33 +1414,10 @@ _lp_battery_color()
         lp_batt_color="${LP_COLOR_DISCHARGING_UNDER}${mark}${NO_COL}"
 
         if (( LP_PERCENTS_ALWAYS )); then
-            # TODO: clean this up
-            local -i idx
-            if   (( bat <=  0 )); then
-                idx=0
-            elif (( bat <=  5 )); then         #  5
-                idx=9
-            elif (( bat <= 10 )); then         #  5
-                idx=8
-            elif (( bat <= 20 )); then         # 10
-                idx=7
-            elif (( bat <= 30 )); then         # 10
-                idx=6
-            elif (( bat <= 40 )); then         # 10
-                idx=5
-            elif (( bat <= 50 )); then         # 10
-                idx=4
-            elif (( bat <= 65 )); then         # 15
-                idx=3
-            elif (( bat <= 80 )); then         # 15
-                idx=2
-            elif (( bat < 100 )); then         # 20
-                idx=1
-            else # >= 100
-                idx=0
-            fi
-
-            lp_batt_color+="${LP_COLORMAP[idx+_LP_FIRST_INDEX]}${bat}$_LP_PERCENT${NO_COL}"
+            local ret
+            # Invert, as higher battery is better
+            _lp_color_map $(( 100 - lp_battery_level ))
+            lp_batt_color+="${ret}${lp_battery_level}$_LP_PERCENT${NO_COL}"
         fi # LP_PERCENTS_ALWAYS
     fi
 }
@@ -1459,7 +1435,7 @@ _lp_color_map() {
       value=$1
     fi
     # Transform the value to a 0..${#COLOR_MAP} scale
-    echo -nE "${LP_COLORMAP[_LP_FIRST_INDEX+value*${#LP_COLORMAP[*]}/scale]}"
+    ret="${LP_COLORMAP[_LP_FIRST_INDEX+value*${#LP_COLORMAP[*]}/scale]}"
 }
 
 ###########################
@@ -1539,7 +1515,9 @@ _lp_load_color()
     local -i load=${lp_cpu_load:-0}/$_lp_CPUNUM
 
     if (( load > LP_LOAD_THRESHOLD )); then
-        lp_load_color="$(_lp_color_map $load)${LP_MARK_LOAD}"
+        local ret
+        _lp_color_map $load
+        lp_load_color="${ret}${LP_MARK_LOAD}"
 
         if (( LP_PERCENTS_ALWAYS )); then
             lp_load_color+="${load}${_LP_PERCENT}"
@@ -1608,17 +1586,6 @@ _lp_temp_detect()
 }
 
 
-# Will display the numeric value as we get through the _LP_TEMP_FUNCTION
-# and colorize it through _lp_color_map.
-_lp_temperature()
-{
-    local -i temperature
-    temperature=0
-    $_LP_TEMP_FUNCTION
-    (( temperature >= LP_TEMP_THRESHOLD )) && \
-        echo -nE "${LP_MARK_TEMP}$(_lp_color_map $temperature 120)$temperature°${NO_COL}"
-}
-
 ##########
 # DESIGN #
 ##########
@@ -1658,23 +1625,6 @@ _lp_smart_mark()
     esac
 }
 
-# insert a space on the right
-_lp_sr()
-{
-    [[ -n "$1" ]] && echo -nE "$1 "
-}
-
-# insert a space on the left
-_lp_sl()
-{
-    [[ -n "$1" ]] && echo -nE " $1"
-}
-
-# insert two space, before and after
-_lp_sb()
-{
-    [[ -n "$1" ]] && echo -nE " $1 "
-}
 
 ###################
 # CURRENT TIME    #
@@ -1757,9 +1707,10 @@ _lp_temp_color() {
     $_LP_TEMP_FUNCTION
 
     if (( temperature >= LP_TEMP_THRESHOLD )); then
-        lp_temp_color="${LP_MARK_TEMP}$(_lp_color_map $temperature 120)$temperature°${NO_COL}"
+        local ret
+        _lp_color_map $temperature 120
+        lp_temp_color="${LP_MARK_TEMP}${ret}$temperature°${NO_COL}"
     else
-        lp_temp_color=
         return 1
     fi
 }
@@ -1904,7 +1855,11 @@ _lp_set_prompt()
 
 prompt_tag()
 {
-    export LP_PS1_PREFIX="$(_lp_sr "$1")"
+    if [[ -n "${1-}" ]]; then
+        export LP_PS1_PREFIX="$1 "
+    else
+        export LP_PS1_PREFIX=
+    fi
 }
 
 # Activate Liquid Prompt

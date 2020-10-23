@@ -1265,6 +1265,7 @@ _lp_bzr_branch_color()
 #         lp_vcs_type; the string ID of the VCS controlling this directory.
 #         lp_vcs_root; the path to the root of the found repository.
 _lp_find_vcs() {
+    local path
     for path in "${LP_DISABLED_VCS_PATH[@]}"; do
         if [[ -n "$path" && "$PWD" == "$path"* ]]; then
             lp_vcs_type="disabled"

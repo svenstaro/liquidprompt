@@ -933,52 +933,6 @@ _lp_git_branch_color()
     fi
 }
 
-# Search upwards through a directory structure looking for a sign of a VCS
-# repository. Used to avoid invoking VCS binaries to discover if in a repo.
-# Checks $LP_DISABLED_VCS_PATH and returns false if a match is found.
-# Otherwise returns the first matching repository.
-# return: true if in repo, false if not or path disabled
-#         lp_vcs_type; the string ID of the VCS controlling this directory.
-#         lp_vcs_root; the path to the root of the found repository.
-_lp_find_vcs() {
-    for path in "${LP_DISABLED_VCS_PATH[@]}"; do
-        if [[ -n "$path" && "$PWD" == "$path"* ]]; then
-            lp_vcs_type="disabled"
-            lp_vcs_root=""
-            return 1
-        fi
-    done
-
-    local dir
-    dir="$PWD"
-    while [[ -n "$dir" ]]; do
-        lp_vcs_root="$dir"
-        for vcs in "${LP_ENABLED_VCSS[@]}"; do
-            if [[ -d "$dir/.$vcs" ]]; then
-                lp_vcs_type="$vcs"
-
-                if [[ "$lp_vcs_type" == git ]]; then
-                    if [[ -n "${VCSH_DIRECTORY-}" ]]; then
-                        lp_vcs_type="git-vcsh"
-                    elif [[ -d "$dir/.git/svn" ]]; then
-                        lp_vcs_type="git-svn"
-                    fi
-                fi
-
-                return 0
-            elif (( LP_ENABLE_FOSSIL)) && [[ -f "$dir/_FOSSIL_" || -f "$dir/.fslckout" ]]; then
-                lp_vcs_type="fossil"
-                return 0
-            fi
-        done
-        dir="${dir%/*}"
-    done
-
-    lp_vcs_type=""
-    lp_vcs_root=""
-    return 1
-}
-
 # MERCURIAL #
 
 # Get the branch name of the current directory
@@ -1236,6 +1190,52 @@ _lp_bzr_branch_color()
     fi
 }
 
+# Search upwards through a directory structure looking for a sign of a VCS
+# repository. Used to avoid invoking VCS binaries to discover if in a repo.
+# Checks $LP_DISABLED_VCS_PATH and returns false if a match is found.
+# Otherwise returns the first matching repository.
+# return: true if in repo, false if not or path disabled
+#         lp_vcs_type; the string ID of the VCS controlling this directory.
+#         lp_vcs_root; the path to the root of the found repository.
+_lp_find_vcs() {
+    for path in "${LP_DISABLED_VCS_PATH[@]}"; do
+        if [[ -n "$path" && "$PWD" == "$path"* ]]; then
+            lp_vcs_type="disabled"
+            lp_vcs_root=""
+            return 1
+        fi
+    done
+
+    local dir
+    dir="$PWD"
+    while [[ -n "$dir" ]]; do
+        lp_vcs_root="$dir"
+        for vcs in "${LP_ENABLED_VCSS[@]}"; do
+            if [[ -d "$dir/.$vcs" ]]; then
+                lp_vcs_type="$vcs"
+
+                if [[ "$lp_vcs_type" == git ]]; then
+                    if [[ -n "${VCSH_DIRECTORY-}" ]]; then
+                        lp_vcs_type="git-vcsh"
+                    elif [[ -d "$dir/.git/svn" ]]; then
+                        lp_vcs_type="git-svn"
+                    fi
+                fi
+
+                return 0
+            elif (( LP_ENABLE_FOSSIL)) && [[ -f "$dir/_FOSSIL_" || -f "$dir/.fslckout" ]]; then
+                lp_vcs_type="fossil"
+                return 0
+            fi
+        done
+        dir="${dir%/*}"
+    done
+
+    lp_vcs_type=""
+    lp_vcs_root=""
+    return 1
+}
+
 
 ####################
 # Wifi link status #
@@ -1321,8 +1321,6 @@ esac
 # a    red ⌁ if the battery is discharging and above threshold
 _lp_battery_color()
 {
-    (( LP_ENABLE_BATT )) || return
-
     local mark=$LP_MARK_BATTERY
     local chargingmark=$LP_MARK_ADAPTER
     local -i bat ret
@@ -1331,25 +1329,26 @@ _lp_battery_color()
 
     if (( ret == 4 || bat == 100 )); then
         # no battery support or battery full: nothing displayed
-        :
+        lp_batt_color=""
+        return 1
     elif (( ret == 3 && bat != 100 )); then
         # charging and above threshold and not 100%
         # green ⏚
-        echo -nE "${LP_COLOR_CHARGING_ABOVE}$chargingmark${NO_COL}"
+        lp_batt_color="${LP_COLOR_CHARGING_ABOVE}$chargingmark${NO_COL}"
     elif (( ret == 2 )); then
         # charging but under threshold
         # yellow ⏚
-        echo -nE "${LP_COLOR_CHARGING_UNDER}$chargingmark${NO_COL}"
+        lp_batt_color="${LP_COLOR_CHARGING_UNDER}$chargingmark${NO_COL}"
     elif (( ret == 1 )); then
         # discharging but above threshold
         # yellow ⌁
-        echo -nE "${LP_COLOR_DISCHARGING_ABOVE}$mark${NO_COL}"
+        lp_batt_color="${LP_COLOR_DISCHARGING_ABOVE}$mark${NO_COL}"
     # discharging and under threshold
     else
-        local res
-        res="${LP_COLOR_DISCHARGING_UNDER}${mark}${NO_COL}"
+        lp_batt_color="${LP_COLOR_DISCHARGING_UNDER}${mark}${NO_COL}"
 
         if (( LP_PERCENTS_ALWAYS )); then
+            # TODO: clean this up
             local -i idx
             if   (( bat <=  0 )); then
                 idx=0
@@ -1375,9 +1374,8 @@ _lp_battery_color()
                 idx=0
             fi
 
-            res+="${LP_COLORMAP[idx+_LP_FIRST_INDEX]}${bat}$_LP_PERCENT${NO_COL}"
+            lp_batt_color+="${LP_COLORMAP[idx+_LP_FIRST_INDEX]}${bat}$_LP_PERCENT${NO_COL}"
         fi # LP_PERCENTS_ALWAYS
-        echo -nE "${res}"
     fi
 }
 
@@ -1401,24 +1399,18 @@ _lp_color_map() {
 # runtime of last command #
 ###########################
 
-_lp_runtime()
+_lp_runtime_format()
 {
-    if (( LP_ENABLE_RUNTIME && _LP_RUNTIME_SECONDS >= LP_RUNTIME_THRESHOLD ))
-    then
-        echo -nE "${LP_COLOR_RUNTIME}"
+    lp_runtime_format=
+    if (( LP_ENABLE_RUNTIME && _LP_RUNTIME_SECONDS >= LP_RUNTIME_THRESHOLD )); then
         # display runtime seconds as days, hours, minutes, and seconds
-        (( _LP_RUNTIME_SECONDS >= 86400 )) && echo -n $((_LP_RUNTIME_SECONDS / 86400))d
-        (( _LP_RUNTIME_SECONDS >= 3600 )) && echo -n $((_LP_RUNTIME_SECONDS % 86400 / 3600))h
-        (( _LP_RUNTIME_SECONDS >= 60 )) && echo -n $((_LP_RUNTIME_SECONDS % 3600 / 60))m
-        echo -n $((_LP_RUNTIME_SECONDS % 60))"s${NO_COL}"
+        (( _LP_RUNTIME_SECONDS >= 86400 )) && lp_runtime_format+="$((_LP_RUNTIME_SECONDS / 86400))d"
+        (( _LP_RUNTIME_SECONDS >= 3600 )) && lp_runtime_format+="$((_LP_RUNTIME_SECONDS % 86400 / 3600))h"
+        (( _LP_RUNTIME_SECONDS >= 60 )) && lp_runtime_format+="$((_LP_RUNTIME_SECONDS % 3600 / 60))m"
+        lp_runtime_format+="$((_LP_RUNTIME_SECONDS % 60))s"
+    else
+        return 1
     fi
-    if (( LP_ENABLE_RUNTIME_BELL && _LP_RUNTIME_SECONDS >= LP_RUNTIME_BELL_THRESHOLD ))
-    then
-        #bash reprints $PS1 on every SIGWINCH, so we tput to stderr here so the bell is not
-        #captured in PS1.  This way the bell only rings once, not on every terminal resize.
-        { tput bel || tput bl ; } >&2 2>/dev/null
-    fi
-    :
 }
 
 if $_LP_SHELL_zsh; then
@@ -1470,8 +1462,6 @@ _lp_load_color()
     # Then we have to choose the values at which the colours switch, with
     # anything past yellow being pretty important.
 
-    (( LP_ENABLE_LOAD )) || return
-
     local lp_cpu_load
     # Get value (OS-specific) into lp_cpu_load
     _lp_cpu_load
@@ -1482,12 +1472,15 @@ _lp_load_color()
     local -i load=${lp_cpu_load:-0}/$_lp_CPUNUM
 
     if (( load > LP_LOAD_THRESHOLD )); then
-        local ret="$(_lp_color_map $load)${LP_MARK_LOAD}"
+        lp_load_color="$(_lp_color_map $load)${LP_MARK_LOAD}"
 
         if (( LP_PERCENTS_ALWAYS )); then
-            ret+="${load}${_LP_PERCENT}"
+            lp_load_color+="${load}${_LP_PERCENT}"
         fi
-        echo -nE "${ret}${NO_COL}"
+        lp_load_color+="${NO_COL}"
+    else
+        lp_load_color=
+        return 1
     fi
 }
 
@@ -1552,8 +1545,6 @@ _lp_temp_detect()
 # and colorize it through _lp_color_map.
 _lp_temperature()
 {
-    (( LP_ENABLE_TEMP )) || return
-
     local -i temperature
     temperature=0
     $_LP_TEMP_FUNCTION
@@ -1587,19 +1578,17 @@ _lp_title()
 # to # if root and else $
 _lp_smart_mark()
 {
-    local mark
     case "$LP_VCS_TYPE" in
-    git)      mark="$LP_MARK_GIT"             ;;
-    git-svn)  mark="$LP_MARK_GIT$LP_MARK_SVN" ;;
-    git-vcsh) mark="$LP_MARK_VCSH$LP_MARK_GIT$LP_MARK_VCSH";;
-    hg)       mark="$LP_MARK_HG"              ;;
-    svn)      mark="$LP_MARK_SVN"             ;;
-    fossil)   mark="$LP_MARK_FOSSIL"          ;;
-    bzr)      mark="$LP_MARK_BZR"             ;;
-    disabled) mark="$LP_MARK_DISABLED"        ;;
-    *)        mark="$LP_MARK_DEFAULT"         ;;
+    git)      lp_smart_mark="$LP_MARK_GIT"             ;;
+    git-svn)  lp_smart_mark="$LP_MARK_GIT$LP_MARK_SVN" ;;
+    git-vcsh) lp_smart_mark="$LP_MARK_VCSH$LP_MARK_GIT$LP_MARK_VCSH";;
+    hg)       lp_smart_mark="$LP_MARK_HG"              ;;
+    svn)      lp_smart_mark="$LP_MARK_SVN"             ;;
+    fossil)   lp_smart_mark="$LP_MARK_FOSSIL"          ;;
+    bzr)      lp_smart_mark="$LP_MARK_BZR"             ;;
+    disabled) lp_smart_mark="$LP_MARK_DISABLED"        ;;
+    *)        lp_smart_mark="$LP_MARK_DEFAULT"         ;;
     esac
-    echo -nE "${mark}${NO_COL}"
 }
 
 # insert a space on the right
@@ -1655,17 +1644,17 @@ if (( LP_ENABLE_TIME )); then
             if (( ( clock=((hh*60+mm-45)/30)%24 ) != _LP_CLOCK_PREV )); then
                 # There is a space just after the clock char because the glyph
                 # width is twice usual glyphs
-                LP_TIME="${LP_COLOR_TIME}${_LP_CLOCK[clock+_LP_FIRST_INDEX]} ${NO_COL} "
+                lp_time="${LP_COLOR_TIME}${_LP_CLOCK[clock+_LP_FIRST_INDEX]} ${NO_COL}"
                 _LP_CLOCK_PREV=clock
             fi
         }
     else
         # Never changes
-        LP_TIME="${LP_COLOR_TIME}${_LP_TIME_SYMBOL}${NO_COL} "
+        lp_time="${LP_COLOR_TIME}${_LP_TIME_SYMBOL}${NO_COL}"
         _lp_time() { : ; }
     fi
 else
-    LP_TIME=""
+    lp_time=""
     _lp_time() { : ; }
 fi
 
@@ -1677,38 +1666,137 @@ fi
 # - attached stopped jobs (suspended with Ctrl-Z)
 # return: lp_jobs; formatted string showing background shell jobs
 _lp_jobcount_color() {
-    lp_jobs=""
+    lp_jobs_color=""
 
     _lp_detached_sessions
-    (( lp_detached_sessions > 0 )) && lp_jobs+="${LP_COLOR_JOB_D}${lp_detached_sessions}d${NO_COL}"
+    (( lp_detached_sessions > 0 )) && lp_jobs_color+="${LP_COLOR_JOB_D}${lp_detached_sessions}d${NO_COL}"
 
     _lp_jobcount
     if (( lp_running_jobs > 0 )); then
-        [[ -n "$lp_jobs" ]] && lp_jobs+='/'
-        lp_jobs+="${LP_COLOR_JOB_R}${lp_running_jobs}&${NO_COL}"
+        [[ -n "$lp_jobs_color" ]] && lp_jobs_color+='/'
+        lp_jobs_color+="${LP_COLOR_JOB_R}${lp_running_jobs}&${NO_COL}"
     fi
     if (( lp_stopped_jobs > 0 )); then
-        [[ -n "$lp_jobS" ]] && lp_jobs+='/'
-        lp_jobs+="${LP_COLOR_JOB_Z}${lp_stopped_jobs}z${NO_COL}"
+        [[ -n "$lp_jobs_color" ]] && lp_jobs_color+='/'
+        lp_jobs_color+="${LP_COLOR_JOB_Z}${lp_stopped_jobs}z${NO_COL}"
     fi
 }
 
+# Will display the numeric value as we get through the _LP_TEMP_FUNCTION
+# and colorize it through _lp_color_map.
+_lp_temp_color() {
+    local -i lp_temperature
+    lp_temperature=0
+    $_LP_TEMP_FUNCTION
+
+    if (( temperature >= LP_TEMP_THRESHOLD )); then
+        lp_temp_color="${LP_MARK_TEMP}$(_lp_color_map $temperature 120)$temperature°${NO_COL}"
+    else
+        lp_temp_color=
+        return 1
+    fi
+}
+
+_lp_runtime_color() {
+    local lp_runtime_format
+    _lp_runtime_format || return $?
+    lp_runtime_color="${LP_COLOR_RUNTIME}${lp_runtime_format}${NO_COL}"
+}
 
 ########################
 # Construct the prompt #
 ########################
 
+lp_theme_prompt() {
+
+    PS1="${LP_PS1_PREFIX}"
+
+    # left of main prompt: space at right
+    if (( LP_ENABLE_TIME )); then
+        _lp_time
+        [[ -n $lp_time ]] && PS1+="$lp_time "
+    fi
+    if (( LP_ENABLE_BATT )); then
+        _lp_battery_color && PS1+="$lp_batt_color "
+    fi
+    if (( LP_ENABLE_LOAD )); then
+        _lp_load_color && PS1+="$lp_load_color "
+    fi
+    if (( LP_ENABLE_TEMP )); then
+        _lp_temp_color && PS1+="$lp_temp_color "
+    fi
+    if (( LP_ENABLE_JOBS )); then
+        _lp_jobcount_color
+        [[ -n $lp_jobs_color ]] && PS1+="$lp_jobs_color "
+    fi
+
+    # add user, host and permissions colon
+    PS1+="${LP_BRACKET_OPEN}${LP_USER}${LP_HOST}${LP_PERM}${LP_PWD}${LP_BRACKET_CLOSE}"
+
+    # Display the current software collections enabled, if available
+    if [[ "$LP_ENABLE_SCLS,${X_SCLS-}" = 1,?* ]]; then
+        PS1+=" [${LP_COLOR_VIRTUALENV}${X_SCLS%"${X_SCLS##*[![:space:]]}"}${NO_COL}]"
+    fi
+
+    # Display the current Python virtual environment, if available
+    if [[ "$LP_ENABLE_VIRTUALENV,${VIRTUAL_ENV-}${CONDA_DEFAULT_ENV-}" = 1,?* ]]; then
+        if [[ -n "${VIRTUAL_ENV-}" ]]; then
+            PS1+=" [${LP_COLOR_VIRTUALENV}${VIRTUAL_ENV##*/}${NO_COL}]"
+        else
+            PS1+=" [${LP_COLOR_VIRTUALENV}${CONDA_DEFAULT_ENV##*/}${NO_COL}]"
+        fi
+    fi
+
+    # in main prompt: no space
+    if [[ "$LP_ENABLE_PROXY,${http_proxy-}" = 1,?* ]]; then
+        PS1+="$LP_COLOR_PROXY$LP_MARK_PROXY$NO_COL"
+    fi
+
+    # Add VCS infos
+    # If root, the info has not been collected unless LP_ENABLE_VCS_ROOT
+    # is set.
+    if _lp_find_vcs; then
+        case "$lp_vcs_type" in
+            # git, git-svn, git-vcsh
+            git*)    PS1+="$(_lp_sl "$(_lp_git_branch_color)")";;
+            hg)      PS1+="$(_lp_sl "$(_lp_hg_branch_color)")";;
+            svn)     PS1+="$(_lp_sl "$(_lp_svn_branch_color)")";;
+            fossil)  PS1+="$(_lp_sl "$(_lp_fossil_branch_color)")";;
+            bzr)     PS1+="$(_lp_sl "$(_lp_bzr_branch_color)")";;
+        esac
+    fi
+
+
+    if (( LP_ENABLE_RUNTIME )); then
+        _lp_runtime_color && PS1+=" $lp_runtime_color"
+    fi
+
+    # Display the return value of the last command, if different from zero
+    if (( lp_err != 0 )); then
+        PS1+=" $LP_COLOR_ERR$lp_err$NO_COL"
+    fi
+
+    _lp_sudo_check
+
+    # add prompt mark
+    # end of the prompt line: double spaces
+    _lp_smart_mark "$lp_vcs_type"
+    PS1+="${LP_MARK_PREFIX}${LP_COLOR_MARK}${lp_smart_mark}${NO_COL} ${LP_PS1_POSTFIX}"
+
+    # "invisible" parts
+    # Get the current prompt on the fly and make it a title
+    PS1="$(_lp_title "$PS1")$PS1"
+
+    # Glue the bash prompt always go to the first column.
+    # Avoid glitches after interrupting a command with Ctrl-C
+    # Does not seem to be necessary anymore?
+    #PS1="\[\033[G\]${PS1}${NO_COL}"
+}
 
 _lp_set_prompt()
 {
-    # Display the return value of the last command, if different from zero
     # As this get the last returned code, it should be called first
-    local -i err=$?
-    if (( err != 0 )); then
-        LP_ERR=" $LP_COLOR_ERR$err$NO_COL"
-    else
-        LP_ERR=''     # Hidden
-    fi
+    local -i lp_err=$?
 
     #TODO: unused?
     local GREP_OPTIONS=
@@ -1716,41 +1804,10 @@ _lp_set_prompt()
     # bash: execute the old prompt hook
     eval "$LP_OLD_PROMPT_COMMAND"
 
-    # left of main prompt: space at right
-    _lp_jobcount_color
-    [[ -n $lp_jobs ]] && lp_jobs="$lp_jobs "
-    LP_TEMP="$(_lp_sr "$(_lp_temperature)")"
-    LP_LOAD="$(_lp_sr "$(_lp_load_color)")"
-    LP_BATT="$(_lp_sr "$(_lp_battery_color)")"
-    _lp_time
-    _lp_sudo_check
-
-    # in main prompt: no space
-    if [[ "$LP_ENABLE_PROXY,${http_proxy-}" = 1,?* ]]; then
-        LP_PROXY="$LP_COLOR_PROXY$LP_MARK_PROXY$NO_COL"
-    else
-        LP_PROXY=
+    if (( LP_ENABLE_RUNTIME_BELL && _LP_RUNTIME_SECONDS >= LP_RUNTIME_BELL_THRESHOLD ))
+    then
+        tput bel || tput bl
     fi
-
-    # Display the current Python virtual environment, if available
-    if [[ "$LP_ENABLE_VIRTUALENV,${VIRTUAL_ENV-}${CONDA_DEFAULT_ENV-}" = 1,?* ]]; then
-        if [[ -n "${VIRTUAL_ENV-}" ]]; then
-            LP_VENV=" [${LP_COLOR_VIRTUALENV}${VIRTUAL_ENV##*/}${NO_COL}]"
-        else
-            LP_VENV=" [${LP_COLOR_VIRTUALENV}${CONDA_DEFAULT_ENV##*/}${NO_COL}]"
-        fi
-    else
-        LP_VENV=
-    fi
-
-    # Display the current software collections enabled, if available
-    if [[ "$LP_ENABLE_SCLS,${X_SCLS-}" = 1,?* ]]; then
-        LP_SCLS=" [${LP_COLOR_VIRTUALENV}${X_SCLS%"${X_SCLS##*[![:space:]]}"}${NO_COL}]"
-    else
-        LP_SCLS=
-    fi
-
-    LP_RUNTIME=$(_lp_sl "$(_lp_runtime)")
 
     # if change of working directory
     if [[ "${LP_OLD_PWD-}" != "LP:$PWD" ]]; then
@@ -1774,57 +1831,7 @@ _lp_set_prompt()
         LP_OLD_PWD="LP:$PWD"
     fi
 
-    if _lp_find_vcs; then
-        case "$lp_vcs_type" in
-            # git, git-svn, git-vcsh
-            git*)    LP_VCS="$(_lp_sl "$(_lp_git_branch_color)")";;
-            hg)      LP_VCS="$(_lp_sl "$(_lp_hg_branch_color)")";;
-            svn)     LP_VCS="$(_lp_sl "$(_lp_svn_branch_color)")";;
-            fossil)  LP_VCS="$(_lp_sl "$(_lp_fossil_branch_color)")";;
-            bzr)     LP_VCS="$(_lp_sl "$(_lp_bzr_branch_color)")";;
-            *)       LP_VCS="";;
-        esac
-    else
-        LP_VCS=""
-    fi
-
-    # end of the prompt line: double spaces
-    LP_MARK="$(_lp_sr "$(_lp_smart_mark $lp_vcs_type)")"
-
-    if [[ -f "${LP_PS1_FILE-}" ]]; then
-        source "$LP_PS1_FILE"
-    fi
-
-    if [[ -z "$LP_PS1" ]]; then
-        # add title escape time, jobs, load and battery
-        PS1="${LP_PS1_PREFIX}${LP_TIME}${LP_BATT}${LP_LOAD}${LP_TEMP}${lp_jobs}"
-        # add user, host and permissions colon
-        PS1+="${LP_BRACKET_OPEN}${LP_USER}${LP_HOST}${LP_PERM}"
-
-        PS1+="${LP_PWD}${LP_BRACKET_CLOSE}${LP_SCLS}${LP_VENV}${LP_PROXY}"
-
-        # Add VCS infos
-        # If root, the info has not been collected unless LP_ENABLE_VCS_ROOT
-        # is set.
-        PS1+="${LP_VCS}"
-
-        # add return code and prompt mark
-        PS1+="${LP_RUNTIME}${LP_ERR}${LP_MARK_PREFIX}${LP_COLOR_MARK}${LP_MARK}${LP_PS1_POSTFIX}"
-
-        # "invisible" parts
-        # Get the current prompt on the fly and make it a title
-        LP_TITLE="$(_lp_title "$PS1")"
-
-        # Insert it in the prompt
-        PS1="${LP_TITLE}${PS1}"
-
-        # Glue the bash prompt always go to the first column.
-        # Avoid glitches after interrupting a command with Ctrl-C
-        # Does not seem to be necessary anymore?
-        #PS1="\[\033[G\]${PS1}${NO_COL}"
-    else
-        PS1=$LP_PS1
-    fi
+    lp_theme_prompt
 }
 
 prompt_tag()
@@ -1833,8 +1840,7 @@ prompt_tag()
 }
 
 # Activate Liquid Prompt
-prompt_on()
-{
+prompt_on() {
     # Reset so all PWD dependent variables are computed after loading
     LP_OLD_PWD=""
 

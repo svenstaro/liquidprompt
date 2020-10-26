@@ -802,15 +802,15 @@ _lp_jobcount() {
 # Check if Git is enabled in Liquidprompt and the current directory is a valid
 # Git repository. This check should be done before running any other _lp_git_*
 # data functions.
-# return: false if Git disabled (2) or not a valid repo (1), true otherwise
+# return: false if Git disabled (2) or not a valid repo (1), true otherwise.
 _lp_git_active() {
     (( LP_ENABLE_GIT )) || return 2
     \git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
 }
 
-# Get the branch name of the repo in the current directory
-# return: true if a valid Git branch is checked out
-#         lp_vcs_branch; the name of the current branch
+# Get the branch name of the Git repo in the current directory.
+# return: true if a valid Git branch is checked out.
+#         lp_vcs_branch; the name of the current branch.
 _lp_git_branch()
 {
     local branch ret
@@ -824,9 +824,9 @@ _lp_git_branch()
     fi
 }
 
-# Get a tag name of the repo in the current directory
-# return: true if a valid Git tag matches the HEAD commit
-#         lp_vcs_tag; the name of (one of) the current tag(s)
+# Get a tag name of the Git repo in the current directory.
+# return: true if a valid Git tag matches the HEAD commit.
+#         lp_vcs_tag; the name of (one of) the current tag(s).
 _lp_git_tag() {
     local tag ret
     if tag="$(\git describe --tags --exact-match 2>/dev/null)"; then
@@ -837,16 +837,17 @@ _lp_git_tag() {
     fi
 }
 
-# Get the current short commit hash of the repo in the current directory
-# return: lp_vcs_commit_hash; the short hash of the HEAD commit
-_lp_git_commit_hash() {
-    lp_vcs_commit_hash="$(\git rev-parse --short -q HEAD)"
+# Get the current short commit hash of the Git repo in the current directory.
+# return: lp_vcs_commit_string; the short hash of the HEAD commit.
+_lp_git_commit_string() {
+    lp_vcs_commit_string="$(\git rev-parse --short -q HEAD)"
 }
 
-# Get additional information if HEAD is in merging, rebasing
-# or cherry-picking state
-# return: true if any extra state is found
-#         lp_vcs_head_status; the extra repo state
+# Get additional information if HEAD is in merging, rebasing or cherry-picking
+# state.
+# This function depends on _lp_find_vcs() being run first to set $lp_vcs_root.
+# return: true if any extra state is found.
+#         lp_vcs_head_status; the extra repo state.
 _lp_git_head_status() {
     local gitdir="${lp_vcs_root}/.git"
     if [[ -f "${gitdir}/MERGE_HEAD" ]]; then
@@ -860,9 +861,9 @@ _lp_git_head_status() {
     fi
 }
 
-# Get the number of Git stashes in the repo
-# return: true if any stashes are found
-#         lp_vcs_stash_count; the number of stashes
+# Get the number of Git stashes in the repo.
+# return: true if any stashes are found.
+#         lp_vcs_stash_count; the number of stashes.
 _lp_git_stash_count() {
     local stashes count
     stashes="$(\git rev-parse --verify -q refs/stash; printf x)"
@@ -871,45 +872,61 @@ _lp_git_stash_count() {
     (( lp_vcs_stash_count ))
 }
 
-# Get the number of untracked files in the repo
-# return: true if any untracked files are found
-#         lp_vcs_untracked_count; the number of untracked files
+# Get the number of commits ahead and behind the upstream branch.
+# return: true if any commits differ from the remote branch, false if not (1)
+#             or no upstream branch exists (2).
+#         lp_vcs_commit_behind; the number of commits that only exist remotely.
+#         lp_vcs_commit_ahead; the number of commits that only exist locally.
+_lp_git_commits_off_remote() {
+    local count
+    # the "@{upstream}" notation was added in Git 1.7.0
+    count="$(\git rev-list --count --left-right @{upstream}..HEAD 2>/dev/null)" || return 2
+    IFS=$' \t' read lp_vcs_commit_behind lp_vcs_commit_ahead <<<"$count"
+    (( lp_vcs_commit_behind || lp_vcs_commit_ahead ))
+}
+
+# Get the number of untracked files in the repo.
+# return: true if any untracked files are found.
+#         lp_vcs_untracked_count; the number of untracked files.
 _lp_git_untracked_count() {
     lp_vcs_untracked_count="$(LC_ALL=C \git status --porcelain 2>/dev/null | \grep -c '^??')"
     (( lp_vcs_untracked_count ))
 }
 
-# Get the number of commits ahead and behind the upstream branch
-# return: true if any commits differ from the remote branch, false if not
-#             or no upstream branch exists
-#         lp_vcs_commit_behind; the number of commits that only exist remotely
-#         lp_vcs_commit_ahead; the number of commits that only exist locally
-_lp_git_commits_off_remote() {
-    # the "@{upstream}" notation was added in Git 1.7.0
-    IFS=$' \t' read lp_vcs_commit_behind lp_vcs_commit_ahead \
-        <<<"$(\git rev-list --count --left-right @{upstream}..HEAD 2>/dev/null)"
-    (( lp_vcs_commit_behind || lp_vcs_commit_ahead ))
+# Get the number of changed files compared to HEAD.
+# return: true if any files differ from HEAD.
+#         lp_vcs_uncommit_files; the number of lines changed.
+_lp_git_uncommitted_files() {
+    local diff
+    diff="$(LC_ALL=C \git diff --shortstat HEAD -- 2>/dev/null)"
+
+    if [[ "$diff" = *changed* ]]; then
+        diff="${diff/ file*}"
+        lp_vcs_uncommit_files="${diff//[$' \t']}"
+    else
+        return 1
+    fi
 }
 
-# Get the number of changed lines compared to HEAD
-# return: true if any lines differ from HEAD
-#         lp_vcs_uncommit_i_lines; the number of lines inserted
-#         lp_vcs_uncommit_d_lines; the number of lines deleted
+# Get the number of changed lines compared to HEAD.
+# return: true if any lines differ from HEAD.
+#         lp_vcs_uncommit_i_lines; the number of lines inserted.
+#         lp_vcs_uncommit_d_lines; the number of lines deleted.
 _lp_git_uncommitted_lines() {
-    local stat
-    stat="$(LC_ALL=C \git diff --shortstat HEAD -- 2>/dev/null)"
+    local diff
+    diff="$(LC_ALL=C \git diff --shortstat HEAD -- 2>/dev/null)"
 
-    stat=${stat/*changed, /} # removing "n file(s) changed"
+    diff=${diff/*changed, /} # removing "n file(s) changed"
 
-    if [[ "$stat" = *insertion* ]]; then
-        lp_vcs_uncommit_i_lines=${stat/ inser*}
+    if [[ "$diff" = *insertion* ]]; then
+        lp_vcs_uncommit_i_lines="${diff/ inser*}"
     else
         lp_vcs_uncommit_i_lines=0
     fi
 
-    if [[ "$stat" = *deletion* ]]; then
-        lp_vcs_uncommit_d_lines=${stat/*\(+\), }
-        lp_vcs_uncommit_d_lines=${d_lines/ del*/}
+    if [[ "$diff" = *deletion* ]]; then
+        lp_vcs_uncommit_d_lines="${diff/*\(+\), }"
+        lp_vcs_uncommit_d_lines="${lp_vcs_uncommit_d_lines/ del*/}"
     else
         lp_vcs_uncommit_d_lines=0
     fi
@@ -917,10 +934,25 @@ _lp_git_uncommitted_lines() {
     (( lp_vcs_uncommit_i_lines || lp_vcs_uncommit_d_lines ))
 }
 
-# Get the number of changed lines compared to staging
-# return: true if any lines differ from staging
-#         lp_vcs_unstaged_i_lines; the number of lines inserted
-#         lp_vcs_unstaged_d_lines; the number of lines deleted
+# Get the number of changed files compared to staging.
+# return: true if any files differ from staging.
+#         lp_vcs_unstaged_files; the number of files changed.
+_lp_git_unstaged_files() {
+    local diff
+    diff="$(LC_ALL=C \git diff --shortstat 2>/dev/null)"
+
+    if [[ "$diff" = *changed* ]]; then
+        diff="${diff/ file*}"
+        lp_vcs_unstaged_files="${diff//[$' \t']}"
+    else
+        return 1
+    fi
+}
+
+# Get the number of changed lines compared to staging.
+# return: true if any lines differ from staging.
+#         lp_vcs_unstaged_i_lines; the number of lines inserted.
+#         lp_vcs_unstaged_d_lines; the number of lines deleted.
 _lp_git_unstaged_lines() {
     local stat
     stat="$(LC_ALL=C \git diff --shortstat 2>/dev/null)"
@@ -928,88 +960,19 @@ _lp_git_unstaged_lines() {
     stat=${stat/*changed, /} # removing "n file(s) changed"
 
     if [[ "$stat" = *insertion* ]]; then
-        lp_vcs_unstaged_i_lines=${stat/ inser*}
+        lp_vcs_unstaged_i_lines="${stat/ inser*}"
     else
         lp_vcs_unstaged_i_lines=0
     fi
 
     if [[ "$stat" = *deletion* ]]; then
-        lp_vcs_unstaged_d_lines=${stat/*\(+\), }
-        lp_vcs_unstaged_d_lines=${lp_vcs_unstaged_d_lines/ del*/}
+        lp_vcs_unstaged_d_lines="${stat/*\(+\), }"
+        lp_vcs_unstaged_d_lines="${lp_vcs_unstaged_d_lines/ del*/}"
     else
         lp_vcs_unstaged_d_lines=0
     fi
 
     (( lp_vcs_unstaged_i_lines || lp_vcs_unstaged_d_lines ))
-}
-
-# Set a color depending on the branch state:
-# - green if the repository is up to date
-# - yellow if there is some commits not pushed
-# - red if there is changes to commit
-# Add the number of pending commits and the impacted lines.
-# return: lp_vcs_branch_color; the detailed formatted string of repo details
-_lp_git_details_color()
-{
-    local branch
-    if _lp_git_branch; then
-        branch="$lp_vcs_branch"
-    elif _lp_git_tag; then
-        branch="tag: $lp_vcs_tag"
-    else
-        _lp_git_commit_hash
-        branch="$lp_vcs_commit_hash"
-    fi
-
-    local end="$NO_COL"
-    if _lp_git_head_status; then
-        end="${LP_COLOR_CHANGES}${lp_vcs_head_status}$end"
-    fi
-
-    if _lp_git_untracked_count; then
-        end="$LP_COLOR_CHANGES$LP_MARK_UNTRACKED$end"
-    fi
-
-    # Show if there is a git stash
-    if _lp_git_stash_count; then
-        end="$LP_COLOR_COMMITS$LP_MARK_STASH$end"
-    fi
-
-    local has_commit=""
-    if _lp_git_commits_off_remote; then
-        if [[ "$lp_vcs_commit_ahead" -ne "0" && "$lp_vcs_commit_behind" -ne "0" ]]; then
-            has_commit="${LP_COLOR_COMMITS}+$lp_vcs_commit_ahead${NO_COL}/${LP_COLOR_COMMITS_BEHIND}-$lp_vcs_commit_behind${NO_COL}"
-        elif [[ "$lp_vcs_commit_ahead" -ne "0" ]]; then
-            has_commit="${LP_COLOR_COMMITS}$lp_vcs_commit_ahead${NO_COL}"
-        elif [[ "$lp_vcs_commit_behind" -ne "0" ]]; then
-            has_commit="${LP_COLOR_COMMITS_BEHIND}-$lp_vcs_commit_behind${NO_COL}"
-        fi
-    fi
-
-    local ret
-    if _lp_git_uncommitted_lines; then
-        _lp_git_unstaged_lines
-
-        local has_lines
-        has_lines="+$lp_vcs_unstaged_i_lines/-$lp_vcs_unstaged_d_lines"
-
-        if [[ -n "$has_commit" ]]; then
-            # Changes to commit and commits to push
-            ret="${LP_COLOR_CHANGES}${branch}${NO_COL}(${LP_COLOR_DIFF}$has_lines${NO_COL},$has_commit)"
-        else
-            ret="${LP_COLOR_CHANGES}${branch}${NO_COL}(${LP_COLOR_DIFF}$has_lines${NO_COL})" # changes to commit
-        fi
-    elif [[ -n "$has_commit" ]]; then
-        # some commit(s) to push
-        if [[ "$lp_vcs_commit_behind" -gt "0" ]]; then
-            ret="${LP_COLOR_COMMITS_BEHIND}${branch}${NO_COL}($has_commit)"
-        else
-            ret="${LP_COLOR_COMMITS}${branch}${NO_COL}($has_commit)"
-        fi
-    else
-        ret="${LP_COLOR_UP}${branch}" # nothing to commit or push
-    fi
-    lp_vcs_branch_color="$ret$end"
 }
 
 # MERCURIAL #
@@ -1128,85 +1091,134 @@ _lp_svn_branch_color()
 
 # FOSSIL #
 
-# Get the tag name of the current directory
-_lp_fossil_branch()
-{
+# Check if Fossil is enabled in Liquidprompt and the current directory is a
+# valid Fossil repository. This check should be done before running any other
+# _lp_fossil_* data functions.
+# return: false if Fossil disabled (2) or not a valid repo (1), true otherwise.
+_lp_fossil_active() {
     (( LP_ENABLE_FOSSIL )) || return 2
+    \fossil status >/dev/null 2>&1 || return 1
+}
 
+# Get the branch name of the repo in the current directory.
+# return: true if a valid Fossil branch is checked out.
+#         lp_vcs_branch; the name of the current branch.
+_lp_fossil_branch() {
     local branch ret
 
     # branch current command added in fossil 2.7
-    if branch="$(fossil branch current)"; then
-        _lp_escape "$branch"
-        lp_vcs_branch="$ret"
-        return 0
+    if ! branch="$(\fossil branch current)"; then
+        branch=$(\fossil branch list 2>/dev/null | sed -n 's/^\*\s\s*\(\w*\)$/\1/p')
     fi
 
-    branch=$(fossil branch list 2>/dev/null | sed -n 's/^\*\s\s*\(\w*\)$/\1/p')
     if [[ -n "$branch" ]]; then
         _lp_escape "$branch"
         lp_vcs_branch="$ret"
-    elif fossil info &>/dev/null ; then
-        lp_vcs_branch="no-branch"
     else
         return 1
     fi
 }
 
-# Set a color depending on the branch state:
-# - green if the repository is clean
-# - red if there is changes to commit
-# - yellow if the branch has no tag name
-#
-# Add the number of impacted files with a
-# + when files are ADDED or EDITED
-# - when files are DELETED
-_lp_fossil_branch_color()
-{
-    _lp_fossil_branch || return $?
-    local branch="$lp_vcs_branch"
+# A Fossil tag can refer to multiple checkin IDs, so a matching tag is not a
+# useful ID for where we are.
+# return: always false (2: disabled).
+_lp_fossil_tag() {
+    return 2
+}
 
-    local -i C2E # Modified files (added or edited)
-    local C2A # Extras files
-    local ret
-    C2E=$(fossil changes | wc -l)
-    C2A=$(fossil extras | wc -l)
-    ret=$(fossil diff -i -v | awk '
+# Get the current short commit hash of the Fossil repo in the current directory.
+# return: lp_vcs_commit_string; the short hash of the current check-out.
+_lp_fossil_commit_string() {
+    local hash
+    hash="$(\fossil status | sed -n 's/^checkout:[[:space:]]*\([^[:space:]]*\).*/\1/p')"
+    # This 7 char truncation could be done with sed, but I want to get rid of sed
+    lp_vcs_commit_string="${hash:0:7}"
+}
+
+# Get additional information if the check-out is in merging before a commit.
+# Like Git, Fossil has a way to abort or undo in progress changes before a
+# commit is actually written.
+# return: true if any extra state is found.
+#         lp_vcs_head_status; the extra repo state.
+_lp_fossil_head_status() {
+    local option
+    option="$(\fossil undo --dry-run 2>/dev/null)"
+
+    if [[ "$option" == *"fossil merge"* ]]; then
+        lp_vcs_head_status="MERGING"
+    else
+        return 1
+    fi
+}
+
+# Get the number of Fossil stashes in the repo.
+# return: true if any stashes are found.
+#         lp_vcs_stash_count; the number of stashes.
+_lp_fossil_stash_count() {
+    local stashes count
+    stashes="$(\fossil stash list; printf x)"
+    _lp_line_count "${stashes%x}"
+    # Each stash takes up two lines, and no stashes is one line
+    lp_vcs_stash_count=$(( count / 2 ))
+    (( lp_vcs_stash_count ))
+}
+
+# Get the number of extra files in the Fossil repo.
+# return: true if any untracked files are found.
+#         lp_vcs_untracked_count; the number of untracked files.
+_lp_fossil_untracked_count() {
+    local extras count
+    extras="$(\fossil extras; printf x)"
+    _lp_line_count "${extras%x}"
+    lp_vcs_untracked_count="$count"
+    (( lp_vcs_untracked_count ))
+}
+
+# Fossil by default keeps the local repo in sync with the remote. Even if a
+# user disables that, it is not possible to have a local and remote branch
+# named the same not in sync.
+# return: always false (3: disabled).
+_lp_fossil_commits_off_remote() {
+    return 3
+}
+
+# Get the number of changed files compared to the checked-out version.
+# return: true if any files differ from check-out.
+#         lp_vcs_uncommit_files; the number of files changed.
+_lp_fossil_uncommitted_files() {
+    local files
+    files="$(\fossil changes; printf x)"
+    _lp_line_count "${files%x}"
+    lp_vcs_uncommit_files="$count"
+    (( lp_vcs_uncommit_files ))
+}
+
+# Get the number of changed lines compared to the checked-out version.
+# return: true if any lines differ from check-out.
+#         lp_vcs_uncommit_i_lines; the number of lines inserted.
+#         lp_vcs_uncommit_d_lines; the number of lines deleted.
+_lp_fossil_uncommitted_lines() {
+    IFS=' ' read lp_vcs_uncommit_i_lines lp_vcs_uncommit_d_lines \
+        <<<"$(\fossil diff --internal --verbose | awk '
         /^(\+[^+])|(\+$)/ { plus+=1 }
         /^(-[^-])|(-$)/ { minus+=1 }
         END {
-            total=""
-            if (plus>0) {
-                total="+"plus
-                if(minus>0) total=total"/"
-            }
-            if (minus>0) {
-                total=total"-"minus
-            }
-            print total
-        }')
+            print plus" "minus
+        }')"
 
-    if (( C2E > 0 )); then
-        [[ -n "$ret" ]] && ret+=" in "
-        ret="(${LP_COLOR_DIFF}${ret}${C2E}${NO_COL})"
-    fi
+    (( lp_vcs_uncommit_i_lines || lp_vcs_uncommit_d_lines ))
+}
 
-    if (( C2A > 0 )); then
-        C2A="$LP_COLOR_CHANGES$LP_MARK_UNTRACKED"
-    else
-        C2A=""
-    fi
+# Fossil has no staging area, so this is always 0.
+# return: always false (2: disabled).
+_lp_fossil_unstaged_files() {
+    return 2
+}
 
-    if [[ "$branch" = "no-tag" ]]; then
-        # Warning, your branch has no tag name !
-        lp_vcs_branch_color="${LP_COLOR_COMMITS}$branch${NO_COL}$ret${LP_COLOR_COMMITS}$C2A${NO_COL}"
-    elif (( C2E == 0 )); then
-        # All is up-to-date
-        lp_vcs_branch_color="${LP_COLOR_UP}$branch$C2A${NO_COL}"
-    else
-        # There're some changes to commit
-        lp_vcs_branch_color="${LP_COLOR_CHANGES}$branch${NO_COL}$ret${LP_COLOR_CHANGES}$C2A${NO_COL}"
-    fi
+# Fossil has no staging area, so this is always 0.
+# return: always false (2: disabled).
+_lp_fossil_unstaged_lines() {
+    return 2
 }
 
 # Bazaar #
@@ -1261,7 +1273,7 @@ _lp_bzr_branch_color()
 # repository. Used to avoid invoking VCS binaries to discover if in a repo.
 # Checks $LP_DISABLED_VCS_PATH and returns false if a match is found.
 # Otherwise returns the first matching repository.
-# return: true if in repo, false if not or path disabled
+# return: true if in repo, false if not (1) or path disabled (2).
 #         lp_vcs_type; the string ID of the VCS controlling this directory.
 #         lp_vcs_root; the path to the root of the found repository.
 _lp_find_vcs() {
@@ -1281,15 +1293,6 @@ _lp_find_vcs() {
         for vcs in "${LP_ENABLED_VCSS[@]}"; do
             if [[ -d "$dir/.$vcs" ]]; then
                 lp_vcs_type="$vcs"
-
-                if [[ "$lp_vcs_type" == git ]]; then
-                    if [[ -n "${VCSH_DIRECTORY-}" ]]; then
-                        lp_vcs_type="git-vcsh"
-                    elif [[ -d "$dir/.git/svn" ]]; then
-                        lp_vcs_type="git-svn"
-                    fi
-                fi
-
                 return 0
             elif (( LP_ENABLE_FOSSIL)) && [[ -f "$dir/_FOSSIL_" || -f "$dir/.fslckout" ]]; then
                 lp_vcs_type="fossil"
@@ -1302,6 +1305,115 @@ _lp_find_vcs() {
     lp_vcs_type=""
     lp_vcs_root=""
     return 1
+}
+
+# Check if the detected VCS is enabled in Liquidprompt and the current
+# directory is a valid repository of that type. This check should be done
+# before running any other _lp_vcs_* data functions, but can be omitted for
+# speed reasons if the checks done by _lp_find_vcs() are good enough.
+# return: false if VCS disabled (2) or not a valid repo (1), true otherwise.
+_lp_vcs_active() {
+    _lp_${lp_vcs_type}_active 2>/dev/null
+}
+
+# Get the branch name of the repo in the current directory.
+# return: true if a valid VCS branch is checked out.
+#         lp_vcs_branch; the name of the current branch.
+_lp_vcs_branch() {
+    _lp_${lp_vcs_type}_branch 2>/dev/null
+}
+
+# Get a tag name of the repo in the current directory. Note that not all VCS
+# providers support tags that match to one and only one commit object.
+# return: true if a valid VCS tag matches the HEAD commit. False if no tag
+#             matches (1) or unique tags are not supported (2+).
+#         lp_vcs_tag; the name of (one of) the current tag(s).
+_lp_vcs_tag() {
+    _lp_${lp_vcs_type}_tag 2>/dev/null
+}
+
+# Get the current short commit string for the repo in the current directory.
+# Some VCS providers identify commits by a hash, others use a revision number.
+# The returned string should be unique enough that a user can identify the
+# commit. This should never fail if the current directory is a valid repo.
+# return: lp_vcs_commit_string; a short string that can ID the current commit.
+_lp_vcs_commit_string() {
+    _lp_${lp_vcs_type}_commit_string 2>/dev/null
+}
+
+# Get additional information if the repo is in a special or unusual state.
+# Many VCS providers don't have such information, and many users either don't
+# care to see it or rarely get in a repo state that has any such info. This
+# info is unlikely to be similar across VCSs, and should probably be displayed
+# to a user without manipulation.
+# return: true if any extra state is found, false if not (1) or the VCS
+#             provider does not support any useful extra info (2+).
+#         lp_vcs_head_status; the extra repo state
+_lp_vcs_head_status() {
+    _lp_${lp_vcs_type}_head_status 2>/dev/null
+}
+
+# Get the number of stashes in the repo. Not all VCS providers support stashes.
+# return: true if any stashes are found, false if not (1) or the VCS does not
+#             support stashes (2+).
+#         lp_vcs_stash_count; the number of stashes
+_lp_vcs_stash_count() {
+    _lp_${lp_vcs_type}_stash_count 2>/dev/null
+}
+
+# Get the number of commits ahead and behind the upstream branch. Many VCS
+# providers cannot provide these numbers, simply because they simply don't work
+# that way.
+# return: true if any commits differ from the remote branch, false if not (1),
+#             no upstream branch exists (2), or not supported by the VCS (3+).
+#         lp_vcs_commit_behind; the number of commits that only exist remotely.
+#         lp_vcs_commit_ahead; the number of commits that only exist locally.
+_lp_vcs_commits_off_remote() {
+    _lp_${lp_vcs_type}_commits_off_remote 2>/dev/null
+}
+
+# Get the number of untracked aka extra files in the repo. This count excludes
+# files explicitly ignored by the user.
+# return: true if any untracked files are found.
+#         lp_vcs_untracked_count; the number of untracked files.
+_lp_vcs_untracked_count() {
+    _lp_${lp_vcs_type}_untracked_count 2>/dev/null
+}
+
+# Get the number of changed files compared to the last or checked out commit.
+# return: true if any files differ from the latest commit.
+#         lp_vcs_uncommit_files; the number of lines changed.
+_lp_vcs_uncommitted_files() {
+    _lp_${lp_vcs_type}_uncommitted_files 2>/dev/null
+}
+
+# Get the number of changed lines compared to the last or checked out commit.
+# return: true if any lines differ from the latest commit.
+#         lp_vcs_uncommit_i_lines; the number of lines inserted.
+#         lp_vcs_uncommit_d_lines; the number of lines deleted.
+_lp_vcs_uncommitted_lines() {
+    _lp_${lp_vcs_type}_uncommitted_lines 2>/dev/null
+}
+
+# Get the number of changed files compared to staging. Many VCS providers do
+# not have a staging area, and one might need to fall back to
+# uncommitted_files() instead.
+# return: true if any files differ from staging, false if not (1), or the VCS
+#             does not support staging (2).
+#         lp_vcs_unstaged_files; the number of files changed.
+_lp_vcs_unstaged_files() {
+    _lp_${lp_vcs_type}_unstaged_files 2>/dev/null
+}
+
+# Get the number of changed lines compared to staging. Many VCS providers do
+# not have a staging area, and one might need to fall back to
+# uncommitted_lines() instead.
+# return: true if any lines differ from staging, false if not (1), or the VCS
+#             does not support staging (2).
+#         lp_vcs_unstaged_i_lines; the number of lines inserted.
+#         lp_vcs_unstaged_d_lines; the number of lines deleted.
+_lp_vcs_unstaged_lines() {
+    _lp_${lp_vcs_type}_unstaged_lines 2>/dev/null
 }
 
 
@@ -1613,10 +1725,16 @@ _lp_title()
 # to # if root and else $
 _lp_smart_mark()
 {
-    case "$LP_VCS_TYPE" in
-    git)      lp_smart_mark="$LP_MARK_GIT"             ;;
-    git-svn)  lp_smart_mark="$LP_MARK_GIT$LP_MARK_SVN" ;;
-    git-vcsh) lp_smart_mark="$LP_MARK_VCSH$LP_MARK_GIT$LP_MARK_VCSH";;
+    case "${1:-$lp_vcs_type}" in
+    git)
+        lp_smart_mark="$LP_MARK_GIT"
+
+        if [[ -n "${VCSH_DIRECTORY-}" ]]; then
+            lp_smart_mark="$LP_MARK_VCSH$LP_MARK_GIT$LP_MARK_VCSH"
+        elif [[ -d "${lp_vcs_root}/.git/svn" ]]; then
+            lp_smart_mark="$LP_MARK_GIT$LP_MARK_SVN"
+        fi
+        ;;
     hg)       lp_smart_mark="$LP_MARK_HG"              ;;
     svn)      lp_smart_mark="$LP_MARK_SVN"             ;;
     fossil)   lp_smart_mark="$LP_MARK_FOSSIL"          ;;
@@ -1722,6 +1840,80 @@ _lp_runtime_color() {
     lp_runtime_color="${LP_COLOR_RUNTIME}${lp_runtime_format}${NO_COL}"
 }
 
+# Set a color depending on the branch state:
+# - green if the repository is up to date
+# - yellow if there is some commits not pushed
+# - red if there is changes to commit
+# Add the number of pending commits and the impacted lines.
+# return: lp_vcs_branch_color; the detailed formatted string of repo details
+_lp_vcs_details_color()
+{
+    local branch
+    if _lp_vcs_branch; then
+        branch="$lp_vcs_branch"
+    elif _lp_vcs_tag; then
+        branch="tag: $lp_vcs_tag"
+    else
+        _lp_vcs_commit_string
+        branch="$lp_vcs_commit_hash"
+    fi
+
+    lp_vcs_branch_color="$LP_COLOR_UP"
+
+    local has_commit=
+    if _lp_vcs_commits_off_remote; then
+        lp_vcs_branch_color="$LP_COLOR_COMMITS_BEHIND"
+        if [[ "$lp_vcs_commit_ahead" -ne "0" && "$lp_vcs_commit_behind" -ne "0" ]]; then
+            has_commit="${LP_COLOR_COMMITS}+$lp_vcs_commit_ahead${NO_COL}/${LP_COLOR_COMMITS_BEHIND}-$lp_vcs_commit_behind${NO_COL}"
+        elif [[ "$lp_vcs_commit_ahead" -ne "0" ]]; then
+            has_commit="${LP_COLOR_COMMITS}$lp_vcs_commit_ahead${NO_COL}"
+            lp_vcs_branch_color="$LP_COLOR_COMMITS"
+        elif [[ "$lp_vcs_commit_behind" -ne "0" ]]; then
+            has_commit="${LP_COLOR_COMMITS_BEHIND}-$lp_vcs_commit_behind${NO_COL}"
+        fi
+    fi
+
+    local ret has_lines=
+    if _lp_vcs_uncommitted_lines; then
+        _lp_vcs_unstaged_lines; ret=$?
+        # Only show unstaged changes if the VCS supports staging, otherwise
+        # show uncommited changes
+        if (( ret == 0 )); then
+            has_lines="+$lp_vcs_unstaged_i_lines/-$lp_vcs_unstaged_d_lines"
+        elif (( ret == 1 )); then
+            has_lines="+0/-0"
+        else
+            has_lines="+$lp_vcs_uncommit_i_lines/-$lp_vcs_uncommit_d_lines"
+        fi
+        lp_vcs_branch_color="$LP_COLOR_CHANGES"
+    fi
+
+    lp_vcs_branch_color+="$branch"
+    if [[ -n "$has_lines" || -n "$has_commit" ]]; then
+        lp_vcs_branch_color+="${NO_COL}("
+        if [[ -n "$has_lines" ]]; then
+            lp_vcs_branch_color+="${LP_COLOR_DIFF}${has_lines}${NO_COL}${has_commit:+,}"
+        fi
+        lp_vcs_branch_color+="${has_commit})"
+    fi
+
+    # Show if there are any stashes
+    if _lp_vcs_stash_count; then
+        lp_vcs_branch_color+="$LP_COLOR_COMMITS$LP_MARK_STASH"
+    fi
+
+    # Show if there are any untracked files
+    if _lp_vcs_untracked_count; then
+        lp_vcs_branch_color+="$LP_COLOR_CHANGES$LP_MARK_UNTRACKED"
+    fi
+
+    if _lp_vcs_head_status; then
+        lp_vcs_branch_color+="$LP_COLOR_CHANGES$lp_vcs_head_status"
+    fi
+
+    lp_vcs_branch_color+="$NO_COL"
+}
+
 ########################
 # Construct the prompt #
 ########################
@@ -1775,15 +1967,7 @@ lp_theme_prompt() {
     # If root, the info has not been collected unless LP_ENABLE_VCS_ROOT
     # is set.
     if _lp_find_vcs; then
-        case "$lp_vcs_type" in
-            # git, git-svn, git-vcsh
-            git*)    _lp_git_active && _lp_git_details_color;;
-            hg)      _lp_hg_branch_color;;
-            svn)     _lp_svn_branch_color;;
-            fossil)  _lp_fossil_branch_color;;
-            bzr)     _lp_bzr_branch_color;;
-        esac
-        [[ -n "$lp_vcs_branch_color" ]] && PS1+=" $lp_vcs_branch_color"
+        _lp_vcs_details_color && PS1+=" $lp_vcs_branch_color"
     fi
 
 
@@ -1800,7 +1984,7 @@ lp_theme_prompt() {
 
     # add prompt mark
     # end of the prompt line: double spaces
-    _lp_smart_mark "$lp_vcs_type"
+    _lp_smart_mark
     PS1+="${LP_MARK_PREFIX}${LP_COLOR_MARK}${lp_smart_mark}${NO_COL} ${LP_PS1_POSTFIX}"
 
     # "invisible" parts

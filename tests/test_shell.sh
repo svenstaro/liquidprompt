@@ -230,7 +230,28 @@ function test_parameter_expansion_nested {
 }
 
 function test_substring {
-  : # ??? Do we ever use this?
+  typeset var=abcdabcd
+
+  assertEquals "Parameter expansion substring" "$var" "${var:0}"
+  assertEquals "Parameter expansion substring" "bcdabcd" "${var:1}"
+  assertEquals "Parameter expansion substring" "" "${var:0:0}"
+  assertEquals "Parameter expansion substring" "a" "${var:0:1}"
+  assertEquals "Parameter expansion substring" "ab" "${var:0:2}"
+
+  assertEquals "Parameter expansion substring" "c" "${var:6:1}"
+  assertEquals "Parameter expansion substring" "cd" "${var:6:2}"
+  assertEquals "Parameter expansion substring" "cd" "${var:6:3}"
+  assertEquals "Parameter expansion substring" "d" "${var:7:1}"
+  assertEquals "Parameter expansion substring" "d" "${var:7:2}"
+  assertEquals "Parameter expansion substring" "" "${var:8:1}"
+
+  assertEquals "Parameter expansion substring" "d" "${var: -1:1}"
+  assertEquals "Parameter expansion substring" "" "${var: -1:0}"
+  assertEquals "Parameter expansion substring" "bcd" "${var: -3:5}"
+
+  assertEquals "Parameter expansion substring" "bcd" "${var: -3}"
+
+  # Negative second parameters were not supported until Bash 4.2
 }
 
 function test_advanced_test {

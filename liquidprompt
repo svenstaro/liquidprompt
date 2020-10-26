@@ -837,10 +837,10 @@ _lp_git_tag() {
     fi
 }
 
-# Get the current short commit hash of the Git repo in the current directory.
-# return: lp_vcs_commit_string; the short hash of the HEAD commit.
+# Get the current commit hash of the Git repo in the current directory.
+# return: lp_vcs_commit_string; the hash of the HEAD commit.
 _lp_git_commit_string() {
-    lp_vcs_commit_string="$(\git rev-parse --short -q HEAD)"
+    lp_vcs_commit_string="$(\git rev-parse HEAD 2>/dev/null)"
 }
 
 # Get additional information if HEAD is in merging, rebasing or cherry-picking
@@ -856,6 +856,8 @@ _lp_git_head_status() {
         lp_vcs_head_status="REBASING"
     elif [[ -f "${gitdir}/CHERRY_PICK_HEAD" ]]; then
         lp_vcs_head_status="CHERRY-PICKING"
+    elif [[ -f "${gitdir}/BISECT_START" ]]; then
+        lp_vcs_head_status="BISECTING"
     else
         return 1
     fi
@@ -977,16 +979,23 @@ _lp_git_unstaged_lines() {
 
 # MERCURIAL #
 
-# Get the branch name of the current directory
-_lp_hg_branch()
-{
+# Check if Mercurial is enabled in Liquidprompt and the current directory is a
+# valid Mercurial repository. Note that as 'hg' is written in Python, the
+# startup cost is quite heavy, and as of this writing, 'hg root' does nothing
+# more than look for a '.hg' directory, not examine the contents.
+# return: false if Mercurial disabled (2) or not a valid repo (1), true
+#             otherwise.
+_lp_hg_active() {
     (( LP_ENABLE_HG )) || return 2
+    \hg root >/dev/null 2>&1 || return 1
+}
 
-    # We found an .hg folder, so we need to invoke hg and see if we're actually
-    # in a repository.
-
+# Get the branch name of the repo in the current directory.
+# return: true if a valid Mercurial branch is checked out.
+#         lp_vcs_branch; the name of the current branch.
+_lp_hg_branch() {
     local branch ret
-    if branch="$(hg branch 2>/dev/null)"; then
+    if branch="$(\hg branch 2>/dev/null)"; then
         _lp_escape "$branch"
         lp_vcs_branch="$ret"
     else
@@ -994,49 +1003,114 @@ _lp_hg_branch()
     fi
 }
 
-# Set a color depending on the branch state:
-# - green if the repository is up to date
-# - red if there is changes to commit
-# - TODO: yellow if there is some commits not pushed
-_lp_hg_branch_color()
-{
-    _lp_hg_branch || return $?
-    local ret branch="$lp_vcs_branch"
-
-    local has_untracked=""
-    if hg status -u 2>/dev/null | \grep -q '^?' >/dev/null ; then
-        has_untracked="$LP_COLOR_CHANGES$LP_MARK_UNTRACKED"
-    fi
-
-    # Count local commits waiting for a push
-    #
-    # Unfortunately this requires contacting the remote, so this is always slow
-    # => disabled  https://github.com/nojhan/liquidprompt/issues/217
-    local -i commits
-    #commits=$(hg outgoing --no-merges ${branch} 2>/dev/null | \grep -c '\(^changeset\:\)')
-    commits=0
-
-    # Check if there is some uncommitted stuff
-    if [[ -z "$(hg status --quiet -n)" ]]; then
-        if (( commits > 0 )); then
-            # some commit(s) to push
-            ret="${LP_COLOR_COMMITS}${branch}${NO_COL}(${LP_COLOR_COMMITS}$commits${NO_COL})${has_untracked}${NO_COL}"
-        else
-            # nothing to commit or push
-            ret="${LP_COLOR_UP}${branch}${has_untracked}${NO_COL}"
-        fi
+# Get the most recent tag that refers to the current revision.
+# return: true if a valid Mercurial tag is checked out.
+#         lp_vcs_tag; the name of the current tag.
+_lp_hg_tag() {
+    local tag ret
+    # TODO: this returns all matching tags, separated by space. But tags can
+    # include a space!
+    # TODO: should this use bookmarks instead?
+    tag="$(\hg identify --tags 2>/dev/null)"
+    if [[ -n "$tag" ]]; then
+        _lp_escape "$tag"
+        lp_vcs_tag="$ret"
     else
-        local has_lines
-        # Parse the last line of the diffstat-style output
-        has_lines="$(hg diff --stat 2>/dev/null | sed -n '$ s!^.*, \([0-9]*\) .*, \([0-9]*\).*$!+\1/-\2!p')"
-        if (( commits > 0 )); then
-            # Changes to commit and commits to push
-            ret="${LP_COLOR_CHANGES}${branch}${NO_COL}(${LP_COLOR_DIFF}$has_lines${NO_COL},${LP_COLOR_COMMITS}$commits${NO_COL})${has_untracked}${NO_COL}"
-        else
-            ret="${LP_COLOR_CHANGES}${branch}${NO_COL}(${LP_COLOR_DIFF}$has_lines${NO_COL})${has_untracked}${NO_COL}" # changes to commit
-        fi
+        return 1
     fi
-    lp_vcs_branch_color="$ret"
+}
+
+# Get the current global revision id for the repo in the current directory.
+# return: lp_vcs_commit_string; the global hash of the current revision.
+_lp_hg_commit_string() {
+    lp_vcs_commit_string="$(\hg identify --id 2>/dev/null)"
+}
+
+# Get additional information if the repo is in any unfinished state.
+# This function depends on _lp_find_vcs() being run first to set $lp_vcs_root.
+# return: true if any unfinished state is found.
+#         lp_vcs_head_status; the extra repo state.
+_lp_hg_head_status() {
+    local hgdir="${lp_vcs_root}/.hg"
+    if [[ -d "${hgdir}/merge" ]]; then
+        lp_vcs_head_status="MERGING"
+    elif [[ -f "${hgdir}/rebasestate" ]]; then
+        lp_vcs_head_status="REBASING"
+    elif [[ -f "${hgdir}/updatestate" ]]; then
+        lp_vcs_head_status="UPDATING"
+    elif [[ -f "${hgdir}/bisect.state" ]]; then
+        lp_vcs_head_status="BISECTING"
+    elif [[ -f "${hgdir}/shelvedstate" ]]; then
+        lp_vcs_head_status="SHELVING"
+    elif [[ -f "${hgdir}/graftstate" ]]; then
+        lp_vcs_head_status="GRAFTING"
+    else
+        return 1
+    fi
+}
+
+# Get the number of Mercurial shelves in the repo.
+# return: true if any shelves are found.
+#         lp_vcs_stash_count; the number of shelves.
+_lp_hg_stash_count() {
+    local shelves count
+    shelves="$(\hg shelve --list; printf x)"
+    _lp_line_count "${shelves%x}"
+    lp_vcs_stash_count="$count"
+    (( lp_vcs_stash_count ))
+}
+
+# Mercurial doesn't keep a local copy of the remote state, so checking this
+# will require a connection to the remote server. This means it is often
+# prohibitively time expensive, and therefore shouldn't be used in a prompt.
+# https://github.com/nojhan/liquidprompt/issues/217
+# return: always false (3: disabled).
+_lp_hg_commits_off_remote() {
+    #commits=$(\hg outgoing --no-merges 2>/dev/null | \grep -c '\(^changeset\:\)')
+    return 3
+}
+
+# Get the number of untracked files in the Mercurial repo.
+# return: true if any untracked files are found.
+#         lp_vcs_untracked_count; the number of untracked files.
+_lp_hg_untracked_count() {
+    local untracked count
+    untracked="$(\hg status --unknown --template '{status}' 2>/dev/null)"
+    lp_vcs_untracked_count="${#untracked}"
+    (( lp_vcs_untracked_count ))
+}
+
+# Get the number of changed files compared to the base revision.
+# return: true if any files differ from the base revision.
+#         lp_vcs_uncommit_files; the number of files changed.
+_lp_hg_uncommitted_files() {
+    local files
+    files="$(\hg status --modified --template '{status}' 2>/dev/null)"
+    lp_vcs_uncommit_files="${#files}"
+    (( lp_vcs_uncommit_files ))
+}
+
+# Get the number of changed lines compared to the base revision.
+# return: true if any lines differ from the base revision.
+#         lp_vcs_uncommit_i_lines; the number of lines inserted.
+#         lp_vcs_uncommit_d_lines; the number of lines deleted.
+_lp_hg_uncommitted_lines() {
+    IFS=' ' read lp_vcs_uncommit_i_lines lp_vcs_uncommit_d_lines \
+        <<<"$(\hg diff --stat 2>/dev/null | sed -n '$ s/^.*, \([0-9]*\) .*, \([0-9]*\).*$/\1 \2/p')"
+
+    (( lp_vcs_uncommit_i_lines || lp_vcs_uncommit_d_lines ))
+}
+
+# Mercurial has no staging area, so this is always 0.
+# return: always false (2: disabled).
+_lp_hg_unstaged_files() {
+    return 2
+}
+
+# Mercurial has no staging area, so this is always 0.
+# return: always false (2: disabled).
+_lp_hg_unstaged_lines() {
+    return 2
 }
 
 # SUBVERSION #
@@ -1136,13 +1210,10 @@ _lp_fossil_tag() {
     return 2
 }
 
-# Get the current short commit hash of the Fossil repo in the current directory.
-# return: lp_vcs_commit_string; the short hash of the current check-out.
+# Get the current commit hash of the Fossil repo in the current directory.
+# return: lp_vcs_commit_string; the hash of the current check-out.
 _lp_fossil_commit_string() {
-    local hash
-    hash="$(\fossil status | sed -n 's/^checkout:[[:space:]]*\([^[:space:]]*\).*/\1/p')"
-    # This 7 char truncation could be done with sed, but I want to get rid of sed
-    lp_vcs_commit_string="${hash:0:7}"
+    lp_vcs_commit_string="$(\fossil status | sed -n 's/^checkout:[[:space:]]*\([^[:space:]]*\).*/\1/p')"
 }
 
 # Get additional information if the check-out is in merging before a commit.
@@ -1173,6 +1244,14 @@ _lp_fossil_stash_count() {
     (( lp_vcs_stash_count ))
 }
 
+# Fossil by default keeps the local repo in sync with the remote. Even if a
+# user disables that, it is not possible to have a local and remote branch
+# named the same not in sync.
+# return: always false (3: disabled).
+_lp_fossil_commits_off_remote() {
+    return 3
+}
+
 # Get the number of extra files in the Fossil repo.
 # return: true if any untracked files are found.
 #         lp_vcs_untracked_count; the number of untracked files.
@@ -1182,14 +1261,6 @@ _lp_fossil_untracked_count() {
     _lp_line_count "${extras%x}"
     lp_vcs_untracked_count="$count"
     (( lp_vcs_untracked_count ))
-}
-
-# Fossil by default keeps the local repo in sync with the remote. Even if a
-# user disables that, it is not possible to have a local and remote branch
-# named the same not in sync.
-# return: always false (3: disabled).
-_lp_fossil_commits_off_remote() {
-    return 3
 }
 
 # Get the number of changed files compared to the checked-out version.
@@ -1326,7 +1397,9 @@ _lp_vcs_active() {
     _lp_${lp_vcs_type}_active 2>/dev/null
 }
 
-# Get the branch name of the repo in the current directory.
+# Get the branch name of the repo in the current directory. Note that not all
+# VCS providers will always have a current branch; some like Git can leave the
+# repo in a "detached HEAD" state.
 # return: true if a valid VCS branch is checked out.
 #         lp_vcs_branch; the name of the current branch.
 _lp_vcs_branch() {
@@ -1346,6 +1419,8 @@ _lp_vcs_tag() {
 # Some VCS providers identify commits by a hash, others use a revision number.
 # The returned string should be unique enough that a user can identify the
 # commit. This should never fail if the current directory is a valid repo.
+# Note that some VCS providers will return a very long string, and it might be
+# a good idea to truncate this string to 7 chars or so.
 # return: lp_vcs_commit_string; a short string that can ID the current commit.
 _lp_vcs_commit_string() {
     _lp_${lp_vcs_type}_commit_string 2>/dev/null
@@ -1865,7 +1940,7 @@ _lp_vcs_details_color()
         branch="tag: $lp_vcs_tag"
     else
         _lp_vcs_commit_string
-        branch="$lp_vcs_commit_hash"
+        branch="${lp_vcs_commit_string:0:7}"
     fi
 
     lp_vcs_branch_color="$LP_COLOR_UP"

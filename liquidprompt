@@ -848,18 +848,42 @@ _lp_git_commit_string() {
 # This function depends on _lp_find_vcs() being run first to set $lp_vcs_root.
 # return: true if any extra state is found.
 #         lp_vcs_head_status; the extra repo state.
+#         lp_vcs_head_details; optional extra details, like progress in a rebase.
 _lp_git_head_status() {
-    local gitdir="${lp_vcs_root}/.git"
+    local gitdir="${lp_vcs_root}/.git" IFS=$'\r\n' step total
+
     if [[ -f "${gitdir}/MERGE_HEAD" ]]; then
         lp_vcs_head_status="MERGING"
-    elif [[ -d "${gitdir}/rebase-apply" || -d "${gitdir}/rebase-merge" ]]; then
-        lp_vcs_head_status="REBASING"
+    elif [[ -d "${gitdir}/rebase-merge" ]]; then
+        read step <"${gitdir}/rebase-merge/msgnum"
+        read total <"${gitdir}/rebase-merge/end"
+        if [ -f "${gitdir}/rebase-merge/interactive" ]; then
+            lp_vcs_head_status="REBASE-i"
+        else
+            lp_vcs_head_status="REBASE-m"
+        fi
+    elif [[ -d "${gitdir}/rebase-apply" ]]; then
+        read step <"${gitdir}/rebase-apply/next"
+        read total <"${gitdir}/rebase-apply/last"
+        if [ -f "${gitdir}/rebase-apply/rebasing" ]; then
+            lp_vcs_head_status="REBASE"
+        elif [ -f "${gitdir}/rebase-apply/applying" ]; then
+            lp_vcs_head_status="AM"
+        else
+            lp_vcs_head_status="AM/REBASE"
+        fi
     elif [[ -f "${gitdir}/CHERRY_PICK_HEAD" ]]; then
         lp_vcs_head_status="CHERRY-PICKING"
+    elif [[ -f "${gitdir}/REVERT_HEAD" ]]; then
+        lp_vcs_head_status="REVERTING"
     elif [[ -f "${gitdir}/BISECT_START" ]]; then
         lp_vcs_head_status="BISECTING"
     else
         return 1
+    fi
+
+    if [[ -n "$step" && -n "$total" ]]; then
+        lp_vcs_head_details="${step}/${total}"
     fi
 }
 
@@ -889,10 +913,10 @@ _lp_git_commits_off_remote() {
 
 # Get the number of untracked files in the repo.
 # return: true if any untracked files are found.
-#         lp_vcs_untracked_count; the number of untracked files.
-_lp_git_untracked_count() {
-    lp_vcs_untracked_count="$(LC_ALL=C \git status --porcelain 2>/dev/null | \grep -c '^??')"
-    (( lp_vcs_untracked_count ))
+#         lp_vcs_untracked_files; the number of untracked files.
+_lp_git_untracked_files() {
+    lp_vcs_untracked_files="$(LC_ALL=C \git status --porcelain 2>/dev/null | \grep -c '^??')"
+    (( lp_vcs_untracked_files ))
 }
 
 # Get the number of changed files compared to HEAD.
@@ -1072,12 +1096,12 @@ _lp_hg_commits_off_remote() {
 
 # Get the number of untracked files in the Mercurial repo.
 # return: true if any untracked files are found.
-#         lp_vcs_untracked_count; the number of untracked files.
-_lp_hg_untracked_count() {
-    local untracked count
+#         lp_vcs_untracked_files; the number of untracked files.
+_lp_hg_untracked_files() {
+    local untracked
     untracked="$(\hg status --unknown --template '{status}' 2>/dev/null)"
-    lp_vcs_untracked_count="${#untracked}"
-    (( lp_vcs_untracked_count ))
+    lp_vcs_untracked_files="${#untracked}"
+    (( lp_vcs_untracked_files ))
 }
 
 # Get the number of changed files compared to the base revision.
@@ -1255,12 +1279,12 @@ _lp_fossil_commits_off_remote() {
 # Get the number of extra files in the Fossil repo.
 # return: true if any untracked files are found.
 #         lp_vcs_untracked_count; the number of untracked files.
-_lp_fossil_untracked_count() {
+_lp_fossil_untracked_files() {
     local extras count
     extras="$(\fossil extras; printf x)"
     _lp_line_count "${extras%x}"
-    lp_vcs_untracked_count="$count"
-    (( lp_vcs_untracked_count ))
+    lp_vcs_untracked_files="$count"
+    (( lp_vcs_untracked_files ))
 }
 
 # Get the number of changed files compared to the checked-out version.
@@ -1434,7 +1458,9 @@ _lp_vcs_commit_string() {
 # return: true if any extra state is found, false if not (1) or the VCS
 #             provider does not support any useful extra info (2+).
 #         lp_vcs_head_status; the extra repo state
+#         lp_vcs_head_details; optional extra details.
 _lp_vcs_head_status() {
+    lp_vcs_head_details=
     _lp_${lp_vcs_type}_head_status 2>/dev/null
 }
 
@@ -1460,9 +1486,9 @@ _lp_vcs_commits_off_remote() {
 # Get the number of untracked aka extra files in the repo. This count excludes
 # files explicitly ignored by the user.
 # return: true if any untracked files are found.
-#         lp_vcs_untracked_count; the number of untracked files.
-_lp_vcs_untracked_count() {
-    _lp_${lp_vcs_type}_untracked_count 2>/dev/null
+#         lp_vcs_untracked_files; the number of untracked files.
+_lp_vcs_untracked_files() {
+    _lp_${lp_vcs_type}_untracked_files 2>/dev/null
 }
 
 # Get the number of changed files compared to the last or checked out commit.
@@ -1988,12 +2014,15 @@ _lp_vcs_details_color()
     fi
 
     # Show if there are any untracked files
-    if _lp_vcs_untracked_count; then
+    if _lp_vcs_untracked_files; then
         lp_vcs_branch_color+="$LP_COLOR_CHANGES$LP_MARK_UNTRACKED"
     fi
 
     if _lp_vcs_head_status; then
         lp_vcs_branch_color+="$LP_COLOR_CHANGES$lp_vcs_head_status"
+        if [[ -n "$lp_vcs_head_details" ]]; then
+            lp_vcs_branch_color+=" $lp_vcs_head_details"
+        fi
     fi
 
     lp_vcs_branch_color+="$NO_COL"

@@ -148,16 +148,13 @@ esac
 # CONFIGURATION #
 #################
 
-# The following code is run just once. But it is encapsulated in a function
-# to benefit of 'local' variables.
-#
 # What we do here:
 # 1. Setup variables that can be used by the user: the "API" of Liquid Prompt
 #    for config/theme. Those variables are local to the function.
 #    In practice, this is only color variables.
 # 2. Setup default values
 # 3. Load the configuration
-_lp_source_config()
+__lp_source_config()
 {
 
     # TermInfo feature detection
@@ -257,49 +254,49 @@ _lp_source_config()
 
     unset -f foreground_color background_color
 
-
     # Default values (globals)
+    # Features
     LP_BATTERY_THRESHOLD=${LP_BATTERY_THRESHOLD:-75}
-    LP_LOAD_THRESHOLD=${LP_LOAD_THRESHOLD:-60}
-    LP_TEMP_THRESHOLD=${LP_TEMP_THRESHOLD:-60}
-    LP_RUNTIME_THRESHOLD=${LP_RUNTIME_THRESHOLD:-2}
-    LP_RUNTIME_BELL_THRESHOLD=${LP_RUNTIME_BELL_THRESHOLD:-10}
-    LP_PATH_LENGTH=${LP_PATH_LENGTH:-35}
-    LP_PATH_KEEP=${LP_PATH_KEEP:-2}
-    LP_PATH_DEFAULT="${LP_PATH_DEFAULT:-$_LP_PWD_SYMBOL}"
-    LP_HOSTNAME_ALWAYS=${LP_HOSTNAME_ALWAYS:-0}
-    LP_USER_ALWAYS=${LP_USER_ALWAYS:-1}
-    LP_PERCENTS_ALWAYS=${LP_PERCENTS_ALWAYS:-1}
-    LP_PS1=${LP_PS1:-""}
-    LP_PS1_PREFIX=${LP_PS1_PREFIX:-""}
-    LP_PS1_POSTFIX=${LP_PS1_POSTFIX:-""}
-
-    LP_ENABLE_PERM=${LP_ENABLE_PERM:-1}
+    LP_ENABLE_BATT=${LP_ENABLE_BATT:-1}
+    LP_ENABLE_BZR=${LP_ENABLE_BZR:-1}
+    LP_ENABLE_FOSSIL=${LP_ENABLE_FOSSIL:-1}
+    LP_ENABLE_GIT=${LP_ENABLE_GIT:-1}
+    LP_ENABLE_HG=${LP_ENABLE_HG:-1}
+    LP_ENABLE_RUNTIME_BELL=${LP_ENABLE_RUNTIME_BELL:-0}
+    LP_ENABLE_SCREEN_TITLE=${LP_ENABLE_SCREEN_TITLE:-0}
     LP_ENABLE_SHORTEN_PATH=${LP_ENABLE_SHORTEN_PATH:-1}
-    LP_ENABLE_PROXY=${LP_ENABLE_PROXY:-1}
-    LP_ENABLE_TEMP=${LP_ENABLE_TEMP:-1}
+    LP_ENABLE_SUDO=${LP_ENABLE_SUDO:-0}
+    LP_ENABLE_SVN=${LP_ENABLE_SVN:-1}
+    LP_ENABLE_TITLE=${LP_ENABLE_TITLE:-0}
+    LP_ENABLE_VCS_ROOT=${LP_ENABLE_VCS_ROOT:-0}
+    LP_LOAD_THRESHOLD=${LP_LOAD_THRESHOLD:-60}
+    LP_PATH_KEEP=${LP_PATH_KEEP:-2}
+    LP_PATH_LENGTH=${LP_PATH_LENGTH:-35}
+    LP_RUNTIME_BELL_THRESHOLD=${LP_RUNTIME_BELL_THRESHOLD:-10}
+    LP_RUNTIME_THRESHOLD=${LP_RUNTIME_THRESHOLD:-2}
+    LP_TEMP_THRESHOLD=${LP_TEMP_THRESHOLD:-60}
+    LP_DISABLED_VCS_PATH=("${LP_DISABLED_VCS_PATH[@]-}")
+
+    # Theme
+    LP_ENABLE_FQDN=${LP_ENABLE_FQDN:-0}
     LP_ENABLE_JOBS=${LP_ENABLE_JOBS:-1}
     LP_ENABLE_LOAD=${LP_ENABLE_LOAD:-1}
-    LP_ENABLE_BATT=${LP_ENABLE_BATT:-1}
-    LP_ENABLE_GIT=${LP_ENABLE_GIT:-1}
-    LP_ENABLE_SVN=${LP_ENABLE_SVN:-1}
-    LP_ENABLE_VCSH=${LP_ENABLE_VCSH:-1}
-    LP_ENABLE_FOSSIL=${LP_ENABLE_FOSSIL:-1}
-    LP_ENABLE_HG=${LP_ENABLE_HG:-1}
-    LP_ENABLE_BZR=${LP_ENABLE_BZR:-1}
-    LP_ENABLE_TIME=${LP_ENABLE_TIME:-0}
+    LP_ENABLE_PERM=${LP_ENABLE_PERM:-1}
+    LP_ENABLE_PROXY=${LP_ENABLE_PROXY:-1}
     LP_ENABLE_RUNTIME=${LP_ENABLE_RUNTIME:-1}
-    LP_ENABLE_RUNTIME_BELL=${LP_ENABLE_RUNTIME_BELL:-0}
-    LP_ENABLE_VIRTUALENV=${LP_ENABLE_VIRTUALENV:-1}
     LP_ENABLE_SCLS=${LP_ENABLE_SCLS:-1}
-    LP_ENABLE_VCS_ROOT=${LP_ENABLE_VCS_ROOT:-0}
-    LP_ENABLE_TITLE=${LP_ENABLE_TITLE:-0}
-    LP_ENABLE_SCREEN_TITLE=${LP_ENABLE_SCREEN_TITLE:-0}
     LP_ENABLE_SSH_COLORS=${LP_ENABLE_SSH_COLORS:-0}
-    LP_ENABLE_FQDN=${LP_ENABLE_FQDN:-0}
-    # LP_DISABLED_VCS_PATH="${LP_DISABLED_VCS_PATH}"
-    LP_ENABLE_SUDO=${LP_ENABLE_SUDO:-0}
+    LP_ENABLE_TEMP=${LP_ENABLE_TEMP:-1}
+    LP_ENABLE_TIME=${LP_ENABLE_TIME:-0}
+    LP_ENABLE_TIME_ANALOG=${LP_ENABLE_TIME_ANALOG:-0}
+    LP_ENABLE_VIRTUALENV=${LP_ENABLE_VIRTUALENV:-1}
+    LP_HOSTNAME_ALWAYS=${LP_HOSTNAME_ALWAYS:-0}
+    LP_PERCENTS_ALWAYS=${LP_PERCENTS_ALWAYS:-1}
+    LP_PS1_PREFIX=${LP_PS1_PREFIX:-""}
+    LP_PS1_POSTFIX=${LP_PS1_POSTFIX:-""}
+    LP_USER_ALWAYS=${LP_USER_ALWAYS:-1}
 
+    # Symbols
     LP_MARK_DEFAULT="${LP_MARK_DEFAULT:-$_LP_MARK_SYMBOL}"
     LP_MARK_BATTERY="${LP_MARK_BATTERY:-"⌁"}"
     LP_MARK_ADAPTER="${LP_MARK_ADAPTER:-"⏚"}"
@@ -321,6 +318,7 @@ _lp_source_config()
     LP_MARK_PREFIX="${LP_MARK_PREFIX:-" "}"
     LP_MARK_PERM="${LP_MARK_PERM:-":"}"
 
+    # Colors
     LP_COLOR_PATH=${LP_COLOR_PATH:-$BOLD}
     LP_COLOR_PATH_ROOT=${LP_COLOR_PATH_ROOT:-$BOLD_YELLOW}
     LP_COLOR_PROXY=${LP_COLOR_PROXY:-$BOLD_BLUE}
@@ -390,8 +388,6 @@ _lp_source_config()
     fi
 }
 
-typeset -i _LP_ENABLE_DETACHED_SESSIONS _LP_ENABLE_SCREEN _LP_ENABLE_TMUX
-
 lp_activate() {
     if $_LP_SHELL_bash; then
         # Disable the DEBUG trap used by the RUNTIME feature
@@ -405,13 +401,13 @@ lp_activate() {
         # Disable previous hooks as options that set them
         # may have changed
         {
-            add-zsh-hook -d precmd  _lp_set_prompt
-            add-zsh-hook -d preexec _lp_runtime_before
-            add-zsh-hook -d precmd  _lp_runtime_after
+            add-zsh-hook -d precmd  __lp_set_prompt
+            add-zsh-hook -d preexec __lp_runtime_before
+            add-zsh-hook -d precmd  __lp_runtime_after
         } >/dev/null
     fi
 
-    _lp_source_config
+    __lp_source_config
 
     # Disable feature if the tool is not installed
     _lp_require_tool()
@@ -425,11 +421,11 @@ lp_activate() {
     _lp_require_tool HG hg
     _lp_require_tool BZR bzr
 
-    LP_ENABLED_VCSS=()
-    (( LP_ENABLE_GIT )) && LP_ENABLED_VCSS+=(git)
-    (( LP_ENABLE_SVN )) && LP_ENABLED_VCSS+=(svn)
-    (( LP_ENABLE_HG )) && LP_ENABLED_VCSS+=(hg)
-    (( LP_ENABLE_BZR )) && LP_ENABLED_VCSS+=(bzr)
+    _LP_ENABLED_VCSS=()
+    (( LP_ENABLE_GIT )) && _LP_ENABLED_VCSS+=(git)
+    (( LP_ENABLE_SVN )) && _LP_ENABLED_VCSS+=(svn)
+    (( LP_ENABLE_HG )) && _LP_ENABLED_VCSS+=(hg)
+    (( LP_ENABLE_BZR )) && _LP_ENABLED_VCSS+=(bzr)
 
     if [[ "$LP_OS" = Darwin ]]; then
         _lp_require_tool BATT pmset
@@ -439,28 +435,22 @@ lp_activate() {
 
     unset -f _lp_require_tool
 
-    if (( LP_ENABLE_JOBS )); then
-        command -v screen >/dev/null ; _LP_ENABLE_SCREEN=!$?
-        command -v tmux >/dev/null   ; _LP_ENABLE_TMUX=!$?
-        (( _LP_ENABLE_DETACHED_SESSIONS = ( _LP_ENABLE_SCREEN || _LP_ENABLE_TMUX ) ))
-    fi
+    # require multiplexer tools for _lp_detached_sessions()
+    command -v screen >/dev/null ; _LP_ENABLE_SCREEN=$(( ! $? ))
+    command -v tmux >/dev/null   ; _LP_ENABLE_TMUX=$(( ! $? ))
 
     # Use standard path symbols inside Midnight Commander
     [[ -n "${MC_SID-}" ]] && LP_ENABLE_SHORTEN_PATH=0
 
-    # If we are running in a terminal multiplexer, brackets are colored
-    if [[ "$TERM" == screen* || -n ${TMUX-} ]]; then
-        LP_BRACKET_OPEN="${LP_COLOR_IN_MULTIPLEXER}${LP_MARK_BRACKET_OPEN}${NO_COL}"
-        LP_BRACKET_CLOSE="${LP_COLOR_IN_MULTIPLEXER}${LP_MARK_BRACKET_CLOSE}${NO_COL}"
+    # Modified title escape sequences if in terminal multiplexer
+    if _lp_in_multiplexer; then
         (( LP_ENABLE_TITLE = LP_ENABLE_TITLE && LP_ENABLE_SCREEN_TITLE ))
-        LP_TITLE_OPEN="$(printf '\033k')"
+        LP_TITLE_OPEN=$'\Ek'
         # "\e\" but on bash \ must be escaped
-        LP_TITLE_CLOSE="$(printf '\033%s' "$_LP_BACKSLASH")"
+        LP_TITLE_CLOSE=$'\E'"$_LP_BACKSLASH"
     else
-        LP_BRACKET_OPEN="${LP_MARK_BRACKET_OPEN}"
-        LP_BRACKET_CLOSE="${LP_MARK_BRACKET_CLOSE}"
-        LP_TITLE_OPEN="$(printf '\e]0;')"
-        LP_TITLE_CLOSE="$(printf '\a')"
+        LP_TITLE_OPEN=$'\E]0;'
+        LP_TITLE_CLOSE=$'\a'
     fi
 
     [[ "_$TERM" == _linux* ]] && LP_ENABLE_TITLE=0
@@ -478,181 +468,87 @@ lp_activate() {
         _LP_TERM_UPDATE_DIR=:
     fi
 
-    # Default value for LP_PERM when LP_ENABLE_PERM is 0
-    LP_PERM=${LP_MARK_PERM}   # without color
-
     # Same as bash '\l', but inlined as a constant as the value will not change
     # during the shell's life
     LP_TTYN="$(basename -- "$(tty)" 2>/dev/null)"
 
-
-    ###############
-    # Who are we? #
-    ###############
     command -v _lp_sudo_check >/dev/null && unset -f _lp_sudo_check
 
-    # Yellow for root, bold if the user is not the login one, else no color.
-    if (( EUID != 0 )); then  # if user is not root
-        # if user is not login user
-        if [[ "${USER}" != "$(logname 2>/dev/null || echo "$LOGNAME")" ]]; then
-            LP_USER="${LP_COLOR_USER_ALT}${_LP_USER_SYMBOL}${NO_COL}"
-        elif (( LP_USER_ALWAYS )); then
-            LP_USER="${LP_COLOR_USER_LOGGED}${_LP_USER_SYMBOL}${NO_COL}"
-        else
-            LP_USER=""
-        fi
+    _lp_user
+    local -i user=$?
+    if (( user < 2 )); then  # if user is not root
         # "sudo -n" is only supported from sudo 1.7.0
         if (( LP_ENABLE_SUDO )) \
                 && command -v sudo >/dev/null \
                 && LC_MESSAGES=C sudo -V | GREP_OPTIONS="" \grep -qE '^Sudo version (1(\.([789]\.|[1-9][0-9])|[0-9])|[2-9])'
         then
-            LP_COLOR_MARK_NO_SUDO="$LP_COLOR_MARK"
             # Test the code with the commands:
             #   sudo id   # sudo, enter your credentials
             #   sudo -K   # revoke your credentials
-            _lp_sudo_check()
-            {
-                if sudo -n true 2>/dev/null; then
-                    LP_COLOR_MARK=$LP_COLOR_MARK_SUDO
-                else
-                    LP_COLOR_MARK=$LP_COLOR_MARK_NO_SUDO
-                fi
+            _lp_sudo_check() {
+                sudo -n true 2>/dev/null || return 1
             }
         fi
     else # root!
-        LP_USER="${LP_COLOR_USER_ROOT}${_LP_USER_SYMBOL}${NO_COL}"
-        LP_COLOR_MARK="${LP_COLOR_MARK_ROOT}"
-        LP_COLOR_PATH="${LP_COLOR_PATH_ROOT}"
         # Disable VCS info for all paths
         if (( ! LP_ENABLE_VCS_ROOT )); then
-            LP_DISABLED_VCS_PATH=/
-            LP_MARK_DISABLED="$LP_MARK_DEFAULT"
+            LP_DISABLED_VCS_PATH=("/")
         fi
     fi
 
     # Empty _lp_sudo_check if root or sudo disabled
     if ! command -v _lp_sudo_check >/dev/null; then
-        _lp_sudo_check() { :; }
+        _lp_sudo_check() {
+            return 2
+        }
     fi
 
+    # Reset so all PWD dependent variables are computed after loading
+    LP_OLD_PWD=""
 
-    #################
-    # Where are we? #
-    #################
-
-    lp_hostname
-
+    __lp_gen_path() { :; }
     if (( LP_ENABLE_SHORTEN_PATH )); then
         if (( LP_PATH_KEEP == -1 )); then
-            # _lp_shorten_path becomes a noop
-            _lp_shorten_path()
-            {
-                :
-            }
             # Will never change
-            LP_PWD="${LP_COLOR_PATH}${_LP_DIR_SYMBOL}$NO_COL"
+            lp_work_dir="$_LP_DIR_SYMBOL"
+        else
+            __lp_gen_path() {
+                __lp_shorten_path
+            }
         fi
     else
         # Will never change
-        LP_PWD="${LP_COLOR_PATH}${LP_PATH_DEFAULT}$NO_COL"
+        lp_work_dir="$_LP_PWD_SYMBOL"
 
-        if $_LP_SHELL_bash && [[ -n "$PROMPT_DIRTRIM" ]]; then
-            unset -f _lp_shorten_path
-            alias _lp_shorten_path=_lp_set_dirtrim
+        if $_LP_SHELL_bash && [[ -n "${PROMPT_DIRTRIM-}" ]]; then
+            __lp_gen_path() {
+                __lp_set_dirtrim
+            }
         fi
     fi
 
-    _LP_RUNTIME_LAST_SECONDS=$SECONDS
-
     if (( LP_ENABLE_RUNTIME || LP_ENABLE_RUNTIME_BELL)); then
+        _LP_RUNTIME_LAST_SECONDS=$SECONDS
+
         if $_LP_SHELL_zsh; then
-            add-zsh-hook preexec _lp_runtime_before
-            add-zsh-hook precmd  _lp_runtime_after
+            add-zsh-hook preexec __lp_runtime_before
+            add-zsh-hook precmd  __lp_runtime_after
         else
             _LP_AT_PROMPT=0
-            # _lp_runtime_before gets called just before bash executes a command,
+            # __lp_runtime_before gets called just before bash executes a command,
             # including $PROMPT_COMMAND
             # Pass $_ to this call, because it sets $_ to what it already was
-            trap '_lp_runtime_before "$_"' DEBUG
+            trap '__lp_runtime_before "$_"' DEBUG
         fi
     fi
 
     # Try each _lp_temp method
     _lp_temp_detect acpi sensors
+
+    _lp_theme_activate
 }
 
-lp_hostname() {
-    # Put the hostname if not locally connected
-    # color it in cyan within SSH, and a warning red if within telnet
-    # else display the host without color
-    # The connection is not expected to change from inside the shell, so we
-    # build this just once
-    LP_HOST=""
-
-    # Only process hostname elements if we haven't turned them off
-    if (( LP_HOSTNAME_ALWAYS != -1 )); then
-
-        [[ -r /etc/debian_chroot ]] && LP_HOST="($(< /etc/debian_chroot))"
-
-        # Which host symbol should we use?
-        if (( LP_ENABLE_FQDN )); then
-            LP_HOST_SYMBOL="${_LP_FQDN_SYMBOL}"
-        else
-            LP_HOST_SYMBOL="${_LP_HOST_SYMBOL}"
-        fi
-
-        # If we are connected with a X11 support
-        if [[ -n "$DISPLAY" ]]; then
-            LP_HOST="${LP_COLOR_X11_ON}${LP_HOST}@${NO_COL}"
-        else
-            LP_HOST="${LP_COLOR_X11_OFF}${LP_HOST}@${NO_COL}"
-        fi
-
-        local connection
-        if [[ -n "${SSH_CLIENT-}${SSH2_CLIENT-}${SSH_TTY-}" ]]; then
-            connection=ssh
-        else
-            # tmux: see GH #304
-            # TODO check on *BSD
-            local whoami="$(LC_ALL=C who am i)"
-            local sess_parent="$(ps -o comm= -p $PPID 2> /dev/null)"
-            if [[ x"$whoami" != *'('* || x"$whoami" = *'(:'* || x"$whoami" = *'(tmux'* ]]; then
-                connection=lcl  # Local
-            elif [[ "$sess_parent" = "su" || "$sess_parent" = "sudo" ]]; then
-                connection=su   # Remote su/sudo
-            else
-                connection=tel  # Telnet
-            fi
-        fi
-
-        case "$connection" in
-        lcl)
-            if (( LP_HOSTNAME_ALWAYS )); then
-                LP_HOST+="${LP_COLOR_HOST}${LP_HOST_SYMBOL}${NO_COL}"
-            else
-                # FIXME do we want to display the chroot if local?
-                LP_HOST="" # no hostname if local
-            fi
-            ;;
-        ssh)
-            # If we want a different color for each host
-            (( LP_ENABLE_SSH_COLORS )) && LP_COLOR_SSH="$LP_COLOR_HOST_HASH"
-            LP_HOST+="${LP_COLOR_SSH}${LP_HOST_SYMBOL}${NO_COL}"
-            ;;
-        su)
-            LP_HOST+="${LP_COLOR_SU}${LP_HOST_SYMBOL}${NO_COL}"
-            ;;
-        tel)
-            LP_HOST+="${LP_COLOR_TELNET}${LP_HOST_SYMBOL}${NO_COL}"
-            ;;
-        *)
-            LP_HOST+="${LP_HOST_SYMBOL}" # defaults to no color
-            ;;
-        esac
-    fi
-}
-
-_lp_get_home_tilde_collapsed()
+__lp_get_home_tilde_collapsed()
 {
     # Needs to be in a variable, as different versions of Bash treat '~' in a
     # substitution differently
@@ -665,29 +561,15 @@ _lp_get_home_tilde_collapsed()
 # * Show as much of the cwd path as possible, if shortened display a
 #   leading mark, such as ellipses, to indicate that part is missing
 # * show at least LP_PATH_KEEP leading dirs and current directory
-_lp_shorten_path()
-{
-
-    if (( ! LP_ENABLE_SHORTEN_PATH )); then
-        # We are not supposed to come here often as this case is already
-        # optimized at install time
-        LP_PWD="${LP_COLOR_PATH}${LP_PATH_DEFAULT}$NO_COL"
-        return
-    fi
-
+__lp_shorten_path() {
     local ret=""
 
-    local lp_work_dir
-    _lp_get_home_tilde_collapsed
+    __lp_get_home_tilde_collapsed
 
     local mask="${LP_MARK_SHORTEN_PATH}"
     local -i max_len=$(( ${COLUMNS:-80} * LP_PATH_LENGTH / 100 ))
 
-    if (( LP_PATH_KEEP == -1 )); then
-        # only show the current directory, excluding any parent dirs
-        ret="${lp_work_dir##*/}" # discard everything up to and including the last slash
-        [[ "${ret}" == "" ]] && ret="/" # if in root directory
-    elif (( ${#lp_work_dir} <= max_len )); then
+    if (( ${#lp_work_dir} <= max_len )); then
         ret="$lp_work_dir"
     elif (( LP_PATH_KEEP == 0 )); then
         # len is over max len, show as much of the tail as is allowed
@@ -726,16 +608,16 @@ _lp_shorten_path()
     fi
     # Escape special chars
     _lp_escape "$ret"
-    LP_PWD="${LP_COLOR_PATH}${ret}$NO_COL"
+    lp_work_dir="$ret"
 }
 
 # In Bash shells, PROMPT_DIRTRIM is the number of directories to keep at the end
 # of the displayed path (if "\w" is present in the PS1 var).
 # Liquid Prompt can calculate this number under two conditions, path shortening
 # must be disabled and PROMPT_DIRTRIM must be already set.
-_lp_set_dirtrim() {
+__lp_set_dirtrim() {
     local lp_work_dir
-    _lp_get_home_tilde_collapsed
+    __lp_get_home_tilde_collapsed
     local -i max_len="${COLUMNS:-80}*$LP_PATH_LENGTH/100"
     local -i dt=0
 
@@ -756,7 +638,21 @@ _lp_set_dirtrim() {
     # echo PROMPT_DIRTRIM=$PROMPT_DIRTRIM >&2
 }
 
-
+__lp_color_map() {
+    # Default scale: 0..100
+    # Custom scale: 0..$2
+    local -i scale value
+    scale=${2:-100}
+    if (( $1 >= scale )); then
+      value=scale-1
+    elif (( $1 < 0 )); then
+      value=0
+    else
+      value=$1
+    fi
+    # Transform the value to a 0..${#COLOR_MAP} scale
+    ret="${LP_COLORMAP[_LP_FIRST_INDEX+value*${#LP_COLORMAP[*]}/scale]}"
+}
 
 ################
 # Related jobs #
@@ -767,11 +663,10 @@ _lp_set_dirtrim() {
 # return: lp_detached_sessions; the number of detached sessions
 _lp_detached_sessions() {
     local -i count=0
-    if (( _LP_ENABLE_DETACHED_SESSIONS )); then
-        (( _LP_ENABLE_SCREEN )) && count+=$(screen -ls 2> /dev/null | \grep -c '[Dd]etach[^)]*)$')
-        (( _LP_ENABLE_TMUX )) && count+=$(tmux list-sessions 2> /dev/null | \grep -cv 'attached')
-    fi
+    (( _LP_ENABLE_SCREEN )) && count+=$(screen -ls 2> /dev/null | \grep -c '[Dd]etach[^)]*)$')
+    (( _LP_ENABLE_TMUX )) && count+=$(tmux list-sessions 2> /dev/null | \grep -cv 'attached')
     lp_detached_sessions=$count
+    (( lp_detached_sessions ))
 }
 
 # Return the count of attached running jobs (started with $ myjob &) and/or
@@ -1466,7 +1361,7 @@ _lp_find_vcs() {
     dir="$PWD"
     while [[ -n "$dir" ]]; do
         lp_vcs_root="$dir"
-        for vcs in "${LP_ENABLED_VCSS[@]}"; do
+        for vcs in "${_LP_ENABLED_VCSS[@]}"; do
             if [[ -d "$dir/.$vcs" ]]; then
                 lp_vcs_type="$vcs"
                 return 0
@@ -1598,6 +1493,102 @@ _lp_vcs_unstaged_lines() {
     _lp_${lp_vcs_type}_unstaged_lines 2>/dev/null
 }
 
+# Set the prompt mark to ± if git, to ☿ if mercurial, to ‡ if subversion
+# to # if root and else $
+_lp_smart_mark()
+{
+    case "${1:-$lp_vcs_type}" in
+    git)
+        lp_smart_mark="$LP_MARK_GIT"
+
+        if [[ -n "${VCSH_DIRECTORY-}" ]]; then
+            lp_smart_mark="$LP_MARK_VCSH$LP_MARK_GIT$LP_MARK_VCSH"
+        elif [[ -d "${lp_vcs_root}/.git/svn" ]]; then
+            lp_smart_mark="$LP_MARK_GIT$LP_MARK_SVN"
+        fi
+        ;;
+    hg)       lp_smart_mark="$LP_MARK_HG"              ;;
+    svn)      lp_smart_mark="$LP_MARK_SVN"             ;;
+    fossil)   lp_smart_mark="$LP_MARK_FOSSIL"          ;;
+    bzr)      lp_smart_mark="$LP_MARK_BZR"             ;;
+    disabled) lp_smart_mark="$LP_MARK_DISABLED"        ;;
+    *)        lp_smart_mark="$LP_MARK_DEFAULT"         ;;
+    esac
+}
+
+#############################
+# Development Environements #
+#############################
+
+_lp_python_env() {
+    # Why are these trunkated to the last '/' section? It has always been this
+    # way, and the original author didn't explain why.
+    if [[ -n "${VIRTUAL_ENV-}" ]]; then
+        lp_python_env="${VIRTUAL_ENV##*/}"
+    elif [[ -n "${CONDA_DEFAULT_ENV-}" ]]; then
+        lp_python_env="${CONDA_DEFAULT_ENV##*/}"
+    else
+        return 1
+    fi
+}
+
+_lp_http_proxy() {
+    if [[ -n "${http_proxy-}${HTTP_PROXY-}${https_proxy-}${HTTPS_PROXY-}${all_proxy-}${ALL_PROXY-}" ]]; then
+        lp_http_proxy="${http_proxy:-${HTTP_PROXY:-${https_proxy:-${HTTPS_PROXY:-${all_proxy:-$ALL_PROXY}}}}}"
+    else
+        return 1
+    fi
+}
+
+_lp_software_collections() {
+    if [[ -n "${X_SCLS-}" ]]; then
+        lp_software_collections="${X_SCLS%"${X_SCLS##*[![:space:]]}"}"
+    else
+        return 1
+    fi
+}
+
+############
+# User Env #
+############
+
+_lp_connection() {
+    if [[ -n "${SSH_CLIENT-}${SSH2_CLIENT-}${SSH_TTY-}" ]]; then
+        lp_connection=ssh
+        return
+    fi
+
+    # tmux: see GH #304
+    # TODO check on *BSD
+    local whoami="$(LC_ALL=C who am i)"
+    if [[ x"$whoami" != *'('* || x"$whoami" = *'(:'* || x"$whoami" = *'(tmux'* ]]; then
+        lp_connection=lcl  # Local
+        return
+    fi
+
+    local sess_parent="$(ps -o comm= -p $PPID 2> /dev/null)"
+    if [[ "$sess_parent" = "su" || "$sess_parent" = "sudo" ]]; then
+        lp_connection=su   # Remote su/sudo
+    else
+        lp_connection=tel  # Telnet
+    fi
+}
+
+_lp_in_multiplexer() {
+    [[ "$TERM" == screen* || -n ${TMUX-} ]]
+}
+
+_lp_user() {
+    if (( ${EUID-} == 0 )); then
+        # Root
+        return 2
+    elif [[ "${USER-}" != "$(logname 2>/dev/null || echo "${LOGNAME-}")" ]]; then
+        # Not login user
+        return 1
+    else
+        return 0
+    fi
+}
 
 ####################
 # Wifi link status #
@@ -1658,7 +1649,7 @@ case "$LP_OS" in
         eval "$(pmset -g batt | sed -n 's/^ -InternalBattery.*[[:space:]]\([0-9]*[0-9]\)%; \([^;]*\).*$/percent=\1 batt_status='\'\\2\'/p)"
         case "$batt_status" in
             charged | "")
-            return 4
+                return 4
             ;;
             discharging)
                 lp_battery_level="$percent"
@@ -1675,72 +1666,13 @@ case "$LP_OS" in
     ;;
 esac
 
-# Compute a gradient of background/foreground colors depending on the battery status
-# Display:
-# a  green ⏚ if the battery is charging    and above threshold
-# a yellow ⏚ if the battery is charging    and under threshold
-# a yellow ⌁ if the battery is discharging but above threshold
-# a    red ⌁ if the battery is discharging and above threshold
-_lp_battery_color()
-{
-    local mark=$LP_MARK_BATTERY
-    local chargingmark=$LP_MARK_ADAPTER
-    _lp_battery
-    local -i ret=$?
-
-    if (( ret == 4 || lp_battery_level == 100 )); then
-        # no battery support or battery full: nothing displayed
-        lp_batt_color=""
-        return 1
-    elif (( ret == 3 && lp_battery_level != 100 )); then
-        # charging and above threshold and not 100%
-        # green ⏚
-        lp_batt_color="${LP_COLOR_CHARGING_ABOVE}$chargingmark${NO_COL}"
-    elif (( ret == 2 )); then
-        # charging but under threshold
-        # yellow ⏚
-        lp_batt_color="${LP_COLOR_CHARGING_UNDER}$chargingmark${NO_COL}"
-    elif (( ret == 1 )); then
-        # discharging but above threshold
-        # yellow ⌁
-        lp_batt_color="${LP_COLOR_DISCHARGING_ABOVE}$mark${NO_COL}"
-    # discharging and under threshold
-    else
-        lp_batt_color="${LP_COLOR_DISCHARGING_UNDER}${mark}${NO_COL}"
-
-        if (( LP_PERCENTS_ALWAYS )); then
-            local ret
-            # Invert, as higher battery is better
-            _lp_color_map $(( 100 - lp_battery_level ))
-            lp_batt_color+="${ret}${lp_battery_level}$_LP_PERCENT${NO_COL}"
-        fi # LP_PERCENTS_ALWAYS
-    fi
-}
-
-_lp_color_map() {
-    # Default scale: 0..100
-    # Custom scale: 0..$2
-    local -i scale value
-    scale=${2:-100}
-    if (( $1 >= scale )); then
-      value=scale-1
-    elif (( $1 < 0 )); then
-      value=0
-    else
-      value=$1
-    fi
-    # Transform the value to a 0..${#COLOR_MAP} scale
-    ret="${LP_COLORMAP[_LP_FIRST_INDEX+value*${#LP_COLORMAP[*]}/scale]}"
-}
-
 ###########################
 # runtime of last command #
 ###########################
 
-_lp_runtime_format()
-{
+_lp_runtime_format() {
     lp_runtime_format=
-    if (( LP_ENABLE_RUNTIME && _LP_RUNTIME_SECONDS >= LP_RUNTIME_THRESHOLD )); then
+    if (( _LP_RUNTIME_SECONDS >= LP_RUNTIME_THRESHOLD )); then
         # display runtime seconds as days, hours, minutes, and seconds
         (( _LP_RUNTIME_SECONDS >= 86400 )) && lp_runtime_format+="$((_LP_RUNTIME_SECONDS / 86400))d"
         (( _LP_RUNTIME_SECONDS >= 3600 )) && lp_runtime_format+="$((_LP_RUNTIME_SECONDS % 86400 / 3600))h"
@@ -1752,18 +1684,17 @@ _lp_runtime_format()
 }
 
 if $_LP_SHELL_zsh; then
-    _lp_runtime_before() {
+    __lp_runtime_before() {
       _LP_RUNTIME_LAST_SECONDS=$SECONDS
     }
-    _lp_runtime_after() {
+    __lp_runtime_after() {
         if [[ -n "$_LP_RUNTIME_LAST_SECONDS" ]]; then
             (( _LP_RUNTIME_SECONDS=SECONDS-_LP_RUNTIME_LAST_SECONDS ))
             unset _LP_RUNTIME_LAST_SECONDS
         fi
     }
 else
-    _lp_runtime_before()
-    {
+    __lp_runtime_before() {
         # For debugging
         #echo "XXX $BASH_COMMAND"
 
@@ -1790,7 +1721,7 @@ fi
 # System load #
 ###############
 
-# Compute a gradient of background/forground colors depending on the battery status
+# Compute a gradient of background/forground colors depending on the cpu load status
 _lp_load_color()
 {
     # Colour progression is important ...
@@ -1807,11 +1738,12 @@ _lp_load_color()
     lp_cpu_load=${lp_cpu_load/./}   # Remove '.'
     lp_cpu_load=${lp_cpu_load#0}    # Remove leading '0'
     lp_cpu_load=${lp_cpu_load#0}    # Remove leading '0', again (ex: 0.09)
+    # TODO: move this check into _lp_cpu_load
     local -i load=${lp_cpu_load:-0}/$_lp_CPUNUM
 
     if (( load > LP_LOAD_THRESHOLD )); then
         local ret
-        _lp_color_map $load
+        __lp_color_map $load
         lp_load_color="${ret}${LP_MARK_LOAD}"
 
         if (( LP_PERCENTS_ALWAYS )); then
@@ -1843,7 +1775,6 @@ _lp_temp_sensors()
             sed -n 's/^  temp[0-9][0-9]*_input: \([0-9]*\)\..*$/\1/p'); do
         (( i > ${lp_temperature:-0} )) && lp_temperature=i
     done
-    (( lp_temperature >= LP_TEMP_THRESHOLD ))
 }
 
 # Implementation using 'acpi -t'
@@ -1908,7 +1839,7 @@ _lp_as_text()
 
 _lp_title()
 {
-    (( LP_ENABLE_TITLE )) || return
+    (( LP_ENABLE_TITLE )) || return 2
 
     # Get the current computed prompt as pure text
     echo -nE "${_LP_OPEN_ESC}${LP_TITLE_OPEN}"
@@ -1916,80 +1847,132 @@ _lp_title()
     echo -nE "${LP_TITLE_CLOSE}${_LP_CLOSE_ESC}"
 }
 
-# Set the prompt mark to ± if git, to ☿ if mercurial, to ‡ if subversion
-# to # if root and else $
-_lp_smart_mark()
-{
-    case "${1:-$lp_vcs_type}" in
-    git)
-        lp_smart_mark="$LP_MARK_GIT"
-
-        if [[ -n "${VCSH_DIRECTORY-}" ]]; then
-            lp_smart_mark="$LP_MARK_VCSH$LP_MARK_GIT$LP_MARK_VCSH"
-        elif [[ -d "${lp_vcs_root}/.git/svn" ]]; then
-            lp_smart_mark="$LP_MARK_GIT$LP_MARK_SVN"
-        fi
-        ;;
-    hg)       lp_smart_mark="$LP_MARK_HG"              ;;
-    svn)      lp_smart_mark="$LP_MARK_SVN"             ;;
-    fossil)   lp_smart_mark="$LP_MARK_FOSSIL"          ;;
-    bzr)      lp_smart_mark="$LP_MARK_BZR"             ;;
-    disabled) lp_smart_mark="$LP_MARK_DISABLED"        ;;
-    *)        lp_smart_mark="$LP_MARK_DEFAULT"         ;;
-    esac
-}
-
 
 ###################
 # CURRENT TIME    #
 ###################
 
-# LP_TIME is set colored, with a space on the right side
-if (( LP_ENABLE_TIME )); then
-    if (( LP_TIME_ANALOG )); then
-        typeset -i _LP_CLOCK_PREV=-1
-        # The targeted unicode characters are the "CLOCK FACE" ones
-        # They are located in the codepages between:
-        #     U+1F550 (ONE OCLOCK) and U+1F55B (TWELVE OCLOCK), for the plain hours
-        #     U+1F55C (ONE-THIRTY) and U+1F567 (TWELVE-THIRTY), for the thirties
-        # Generated with:
-        # perl -C -E 'say join("", map {chr(0x1F550+$_)." ".chr(0x1F55C+$_)." "} 0..11)'
-        _LP_CLOCK=(🕐 🕜 🕑 🕝 🕒 🕞 🕓 🕟 🕔 🕠 🕕 🕡 🕖 🕢 🕗 🕣 🕘 🕤 🕙 🕥 🕚 🕦 🕛 🕧 )
+# The targeted unicode characters are the "CLOCK FACE" ones
+# They are located in the codepages between:
+#     U+1F550 (ONE OCLOCK) and U+1F55B (TWELVE OCLOCK), for the plain hours
+#     U+1F55C (ONE-THIRTY) and U+1F567 (TWELVE-THIRTY), for the thirties
+# Generated with:
+# perl -C -E 'say join("", map {chr(0x1F550+$_)." ".chr(0x1F55C+$_)." "} 0..11)'
+_LP_CLOCK=(🕐 🕜 🕑 🕝 🕒 🕞 🕓 🕟 🕔 🕠 🕕 🕡 🕖 🕢 🕗 🕣 🕘 🕤 🕙 🕥 🕚 🕦 🕛 🕧 )
 
-        _lp_time()
-        {
-            # %I: "00".."12"  %M: "00".."59"
-            # Bash interprets a '0' prefix as octal
-            # so we have to clean that
-            local hhmm="$(date "+hh=%I mm=%M")" IFS=' '
-            # hh:  1..12  mm: 0..59
-            local -i hh mm clock
-            eval ${hhmm//=0/=}  # Line split for zsh
-            # clock: 0 .. 25
-            #   1:00..1:14 -> 0
-            #   1:15..1:44 -> 1
-            #   1:45..2:15 -> 2
-            #   ...
-            #   12:15..12:44 -> 23
-            #   12:45..12:59 -> 0
-            if (( ( clock=((hh*60+mm-45)/30)%24 ) != _LP_CLOCK_PREV )); then
-                # There is a space just after the clock char because the glyph
-                # width is twice usual glyphs
-                lp_time="${LP_COLOR_TIME}${_LP_CLOCK[clock+_LP_FIRST_INDEX]} ${NO_COL}"
-                _LP_CLOCK_PREV=clock
-            fi
-        }
-    else
-        # Never changes
-        lp_time="${LP_COLOR_TIME}${_LP_TIME_SYMBOL}${NO_COL}"
-        _lp_time() { : ; }
-    fi
-else
-    lp_time=""
-    _lp_time() { : ; }
-fi
+# Return a clock character closest to the current time.
+_lp_analog_time() {
+    # %I: "00".."12"  %M: "00".."59"
+    # %_I: " 0".."12"  %_M: " 0".."59"
+    local -i hh mm
+    IFS=' ' read hh mm <<<"$(\date '+%_I %_M')"
+    # clock: 0 .. 25
+    #   1:00..1:14 -> 0
+    #   1:15..1:44 -> 1
+    #   1:45..2:15 -> 2
+    #   ...
+    #   12:15..12:44 -> 23
+    #   12:45..12:59 -> 0
+    # There is a space just after the clock char because the glyph
+    # width is twice usual glyphs
+    lp_time="${_LP_CLOCK[((hh*60+mm-45)/30%24)+_LP_FIRST_INDEX]} "
+}
 
 # Theme
+
+# Compute a gradient of background/foreground colors depending on the battery status
+# Display:
+# a  green ⏚ if the battery is charging    and above threshold
+# a yellow ⏚ if the battery is charging    and under threshold
+# a yellow ⌁ if the battery is discharging but above threshold
+# a    red ⌁ if the battery is discharging and above threshold
+_lp_battery_color()
+{
+    local mark=$LP_MARK_BATTERY
+    local chargingmark=$LP_MARK_ADAPTER
+    _lp_battery
+    local -i status=$?
+
+    if (( status == 4 || ${lp_battery_level-} == 100 )); then
+        # no battery support or battery full: nothing displayed
+        lp_batt_color=
+        return 1
+    elif (( status == 3 && lp_battery_level != 100 )); then
+        # charging and above threshold and not 100%
+        # green ⏚
+        lp_batt_color="${LP_COLOR_CHARGING_ABOVE}$chargingmark${NO_COL}"
+    elif (( status == 2 )); then
+        # charging but under threshold
+        # yellow ⏚
+        lp_batt_color="${LP_COLOR_CHARGING_UNDER}$chargingmark${NO_COL}"
+    elif (( status == 1 )); then
+        # discharging but above threshold
+        # yellow ⌁
+        lp_batt_color="${LP_COLOR_DISCHARGING_ABOVE}$mark${NO_COL}"
+    else
+        # discharging and under threshold
+        lp_batt_color="${LP_COLOR_DISCHARGING_UNDER}${mark}${NO_COL}"
+
+        if (( LP_PERCENTS_ALWAYS )); then
+            local ret
+            # Invert, as higher battery is better
+            __lp_color_map $(( 100 - lp_battery_level ))
+            lp_batt_color+="${ret}${lp_battery_level}$_LP_PERCENT${NO_COL}"
+        fi
+    fi
+}
+
+_lp_hostname_color() {
+    # Put the hostname if not locally connected
+    # color it in cyan within SSH, and a warning red if within telnet
+    # else display the host without color
+    LP_HOST=
+
+    # Only process hostname elements if we haven't turned them off
+    if (( LP_HOSTNAME_ALWAYS != -1 )); then
+
+        # Which host symbol should we use?
+        if (( LP_ENABLE_FQDN )); then
+            LP_HOST_SYMBOL="${_LP_FQDN_SYMBOL}"
+        else
+            LP_HOST_SYMBOL="${_LP_HOST_SYMBOL}"
+        fi
+
+        # TODO: data function?
+        # If we are connected with a X11 support
+        if [[ -n "${DISPLAY-}" ]]; then
+            LP_HOST="${LP_COLOR_X11_ON}"
+        else
+            LP_HOST="${LP_COLOR_X11_OFF}"
+        fi
+
+        # TODO: data function?
+        [[ -r /etc/debian_chroot ]] && LP_HOST+="($(< /etc/debian_chroot))"
+
+        _lp_connection
+        case "$lp_connection" in
+        lcl)
+            if (( LP_HOSTNAME_ALWAYS )); then
+                LP_HOST+="@${LP_COLOR_HOST}${LP_HOST_SYMBOL}${NO_COL}"
+            fi # no hostname if local
+            ;;
+        ssh)
+            # If we want a different color for each host
+            (( LP_ENABLE_SSH_COLORS )) && LP_COLOR_SSH="$LP_COLOR_HOST_HASH"
+            LP_HOST+="@${LP_COLOR_SSH}${LP_HOST_SYMBOL}${NO_COL}"
+            ;;
+        su)
+            LP_HOST+="@${LP_COLOR_SU}${LP_HOST_SYMBOL}${NO_COL}"
+            ;;
+        tel)
+            LP_HOST+="@${LP_COLOR_TELNET}${LP_HOST_SYMBOL}${NO_COL}"
+            ;;
+        *)
+            LP_HOST+="@${NO_COL}${LP_HOST_SYMBOL}" # defaults to no color
+            ;;
+        esac
+    fi
+}
 
 # Display the count of each if non-zero:
 # - detached screens sessions and/or tmux sessions running on the host
@@ -1999,8 +1982,7 @@ fi
 _lp_jobcount_color() {
     lp_jobs_color=""
 
-    _lp_detached_sessions
-    (( lp_detached_sessions > 0 )) && lp_jobs_color+="${LP_COLOR_JOB_D}${lp_detached_sessions}d${NO_COL}"
+    _lp_detached_sessions && lp_jobs_color+="${LP_COLOR_JOB_D}${lp_detached_sessions}d${NO_COL}"
 
     _lp_jobcount
     if (( lp_running_jobs > 0 )); then
@@ -2013,22 +1995,42 @@ _lp_jobcount_color() {
     fi
 }
 
+_lp_runtime_color() {
+    local lp_runtime_format
+    _lp_runtime_format || return $?
+    lp_runtime_color="${LP_COLOR_RUNTIME}${lp_runtime_format}${NO_COL}"
+}
+
 # Will display the numeric value as we get through _lp_temperature
-# and colorize it through _lp_color_map.
+# and colorize it through __lp_color_map.
 _lp_temp_color() {
     if _lp_temperature; then
         local ret
-        _lp_color_map $lp_temperature 120
+        __lp_color_map $lp_temperature 120
         lp_temp_color="${LP_MARK_TEMP}${ret}$lp_temperature°${NO_COL}"
     else
         return 1
     fi
 }
 
-_lp_runtime_color() {
-    local lp_runtime_format
-    _lp_runtime_format || return $?
-    lp_runtime_color="${LP_COLOR_RUNTIME}${lp_runtime_format}${NO_COL}"
+# Yellow for root, bold if the user is not the login one, else no color.
+_lp_user_color() {
+    _lp_user
+    local -i user=$?
+    if (( user == 2 )); then  # root
+        LP_USER="${LP_COLOR_USER_ROOT}${_LP_USER_SYMBOL}${NO_COL}"
+        LP_COLOR_MARK="${LP_COLOR_MARK_ROOT}"
+        LP_COLOR_PATH="${LP_COLOR_PATH_ROOT}"
+        if (( ! LP_ENABLE_VCS_ROOT )); then
+            LP_MARK_DISABLED="$LP_MARK_DEFAULT"
+        fi
+    elif (( user == 1 )); then  # not login user
+        LP_USER="${LP_COLOR_USER_ALT}${_LP_USER_SYMBOL}${NO_COL}"
+    elif (( LP_USER_ALWAYS )); then
+        LP_USER="${LP_COLOR_USER_LOGGED}${_LP_USER_SYMBOL}${NO_COL}"
+    else
+        LP_USER=""
+    fi
 }
 
 # Set a color depending on the branch state:
@@ -2111,15 +2113,52 @@ _lp_vcs_details_color()
 ########################
 # Construct the prompt #
 ########################
+_lp_theme_activate() {
+    # The connection is not expected to change from inside the shell, so we
+    # build this just once
+    _lp_hostname_color
+    _lp_user_color
 
-lp_theme_prompt() {
+    # If we are running in a terminal multiplexer, brackets are colored
+    if _lp_in_multiplexer; then
+        LP_BRACKET_OPEN="${LP_COLOR_IN_MULTIPLEXER}${LP_MARK_BRACKET_OPEN}${NO_COL}"
+        LP_BRACKET_CLOSE="${LP_COLOR_IN_MULTIPLEXER}${LP_MARK_BRACKET_CLOSE}${NO_COL}"
+    else
+        LP_BRACKET_OPEN="${LP_MARK_BRACKET_OPEN}"
+        LP_BRACKET_CLOSE="${LP_MARK_BRACKET_CLOSE}"
+    fi
+
+    # Default value for LP_PERM when LP_ENABLE_PERM is 0
+    LP_PERM=${LP_MARK_PERM}   # without color
+}
+
+_lp_theme_directory() {
+    # LP_PERM: shows a ":"
+    # - colored in green if user has write permission on the current dir
+    # - colored in red if not
+    # - can set another symbol with LP_MARK_PERM
+    if (( LP_ENABLE_PERM )); then
+        if [[ -w "${PWD}" ]]; then
+            LP_PERM="${LP_COLOR_WRITE}${LP_MARK_PERM}${NO_COL}"
+        else
+            LP_PERM="${LP_COLOR_NOWRITE}${LP_MARK_PERM}${NO_COL}"
+        fi
+    fi
+
+}
+
+_lp_theme_prompt() {
 
     PS1="${LP_PS1_PREFIX}"
 
     # left of main prompt: space at right
     if (( LP_ENABLE_TIME )); then
-        _lp_time
-        [[ -n $lp_time ]] && PS1+="$lp_time "
+        if (( LP_ENABLE_TIME_ANALOG )); then
+            _lp_analog_time
+            PS1+="${LP_COLOR_TIME}$lp_time${NO_COL} "
+        else
+            PS1+="${LP_COLOR_TIME}${_LP_TIME_SYMBOL}${NO_COL} "
+        fi
     fi
     if (( LP_ENABLE_BATT )); then
         _lp_battery_color && PS1+="$lp_batt_color "
@@ -2136,25 +2175,21 @@ lp_theme_prompt() {
     fi
 
     # add user, host and permissions colon
-    PS1+="${LP_BRACKET_OPEN}${LP_USER}${LP_HOST}${LP_PERM}${LP_PWD}${LP_BRACKET_CLOSE}"
+    PS1+="${LP_BRACKET_OPEN}${LP_USER}${LP_HOST}${LP_PERM}${LP_COLOR_PATH}${lp_work_dir}${NO_COL}${LP_BRACKET_CLOSE}"
 
     # Display the current software collections enabled, if available
-    if [[ "$LP_ENABLE_SCLS,${X_SCLS-}" = 1,?* ]]; then
-        PS1+=" [${LP_COLOR_VIRTUALENV}${X_SCLS%"${X_SCLS##*[![:space:]]}"}${NO_COL}]"
+    if (( LP_ENABLE_SCLS )); then
+        _lp_software_collections && PS1+=" [${LP_COLOR_VIRTUALENV}${lp_software_collections}${NO_COL}]"
     fi
 
     # Display the current Python virtual environment, if available
-    if [[ "$LP_ENABLE_VIRTUALENV,${VIRTUAL_ENV-}${CONDA_DEFAULT_ENV-}" = 1,?* ]]; then
-        if [[ -n "${VIRTUAL_ENV-}" ]]; then
-            PS1+=" [${LP_COLOR_VIRTUALENV}${VIRTUAL_ENV##*/}${NO_COL}]"
-        else
-            PS1+=" [${LP_COLOR_VIRTUALENV}${CONDA_DEFAULT_ENV##*/}${NO_COL}]"
-        fi
+    if (( LP_ENABLE_VIRTUALENV )); then
+        _lp_python_env && PS1+=" [${LP_COLOR_VIRTUALENV}${lp_python_env}${NO_COL}]"
     fi
 
     # in main prompt: no space
-    if [[ "$LP_ENABLE_PROXY,${http_proxy-}" = 1,?* ]]; then
-        PS1+="$LP_COLOR_PROXY$LP_MARK_PROXY$NO_COL"
+    if (( LP_ENABLE_PROXY )); then
+        _lp_http_proxy && PS1+="$LP_COLOR_PROXY$LP_MARK_PROXY$NO_COL"
     fi
 
     # Add VCS infos
@@ -2174,12 +2209,16 @@ lp_theme_prompt() {
         PS1+=" $LP_COLOR_ERR$lp_err$NO_COL"
     fi
 
-    _lp_sudo_check
+    if _lp_sudo_check; then
+        lp_color_mark="$LP_COLOR_MARK_SUDO"
+    else
+        lp_color_mark="$LP_COLOR_MARK"
+    fi
 
     # add prompt mark
     # end of the prompt line: double spaces
     _lp_smart_mark
-    PS1+="${LP_MARK_PREFIX}${LP_COLOR_MARK}${lp_smart_mark}${NO_COL} ${LP_PS1_POSTFIX}"
+    PS1+="${LP_MARK_PREFIX}${lp_color_mark}${lp_smart_mark}${NO_COL} ${LP_PS1_POSTFIX}"
 
     # "invisible" parts
     # Get the current prompt on the fly and make it a title
@@ -2191,7 +2230,7 @@ lp_theme_prompt() {
     #PS1="\[\033[G\]${PS1}${NO_COL}"
 }
 
-_lp_set_prompt()
+__lp_set_prompt()
 {
     # As this get the last returned code, it should be called first
     local -i lp_err=$?
@@ -2204,6 +2243,7 @@ _lp_set_prompt()
 
     if (( LP_ENABLE_RUNTIME_BELL && _LP_RUNTIME_SECONDS >= LP_RUNTIME_BELL_THRESHOLD ))
     then
+        # TODO: save these chars in startup
         tput bel || tput bl
     fi
 
@@ -2212,24 +2252,18 @@ _lp_set_prompt()
         # Update directory icon for MacOS X
         $_LP_TERM_UPDATE_DIR
 
-        # LP_PERM: shows a ":"
-        # - colored in green if user has write permission on the current dir
-        # - colored in red if not
-        # - can set another symbol with LP_MARK_PERM
-        if (( LP_ENABLE_PERM )); then
-            if [[ -w "${PWD}" ]]; then
-                LP_PERM="${LP_COLOR_WRITE}${LP_MARK_PERM}${NO_COL}"
-            else
-                LP_PERM="${LP_COLOR_NOWRITE}${LP_MARK_PERM}${NO_COL}"
-            fi
-        fi
+        __lp_gen_path
 
-        _lp_shorten_path   # set LP_PWD
+        _lp_theme_directory
 
+        # Prefix with 'LP:' to prevent Zsh with AUTO_NAME_DIRS enabled using
+        # this var as a name for the working directory, that will be used by
+        # the '%' and related prompt sequences.
+        # See https://github.com/nojhan/liquidprompt/issues/124 for details.
         LP_OLD_PWD="LP:$PWD"
     fi
 
-    lp_theme_prompt
+    _lp_theme_prompt
 }
 
 prompt_tag()
@@ -2285,7 +2319,7 @@ prompt_on() {
 
         # Disable parameter/command expansion from PS1
         shopt -u promptvars
-        PROMPT_COMMAND=_lp_set_prompt
+        PROMPT_COMMAND=__lp_set_prompt
         (( LP_DEBUG_TIME )) && PROMPT_COMMAND="time $PROMPT_COMMAND" || true
     else # zsh
         [[ -n "$_LP_ZSH_HOOK" ]] && add-zsh-hook -d precmd $_LP_ZSH_HOOK
@@ -2296,11 +2330,11 @@ prompt_on() {
         #if (( LP_DEBUG_TIME )); then
         #    _lp_main_precmd() {
         #        local TIMEFMT='Liquid Prompt build time: %*E'
-        #        time _lp_set_prompt
+        #        time __lp_set_prompt
         #    }
         #    _LP_ZSH_HOOK=_lp_main_precmd
         #else
-            _LP_ZSH_HOOK=_lp_set_prompt
+            _LP_ZSH_HOOK=__lp_set_prompt
         #fi
         add-zsh-hook precmd $_LP_ZSH_HOOK
     fi

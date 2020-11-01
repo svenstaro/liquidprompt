@@ -1502,23 +1502,21 @@ _lp_battery_color() {
 
     local mark=$LP_MARK_BATTERY
     local chargingmark=$LP_MARK_ADAPTER
-    local -i bat ret
     _lp_battery
-    ret=$?
-    bat=$lp_battery
+    local -i status=$?
 
-    if (( ret >= 4 || bat == 100 )); then
+    if (( status >= 4 || lp_battery == 100 )); then
         # no battery support or battery full: nothing displayed
         return 1
-    elif (( ret == 3 && bat != 100 )); then
+    elif (( status == 3 && lp_battery != 100 )); then
         # charging and above threshold and not 100%
         # green ⏚
         lp_battery_color="${LP_COLOR_CHARGING_ABOVE}$chargingmark${NO_COL}"
-    elif (( ret == 2 )); then
+    elif (( status == 2 )); then
         # charging but under threshold
         # yellow ⏚
         lp_battery_color="${LP_COLOR_CHARGING_UNDER}$chargingmark${NO_COL}"
-    elif (( ret == 1 )); then
+    elif (( status == 1 )); then
         # discharging but above threshold
         # yellow ⌁
         lp_battery_color="${LP_COLOR_DISCHARGING_ABOVE}$mark${NO_COL}"
@@ -1552,8 +1550,10 @@ _lp_battery_color() {
                 idx=0
             fi
 
-            lp_battery_color+="${LP_COLORMAP[idx+_LP_FIRST_INDEX]}${bat}$_LP_PERCENT${NO_COL}"
-        fi # LP_PERCENTS_ALWAYS
+            local ret
+            _lp_color_map $idx 10
+            lp_battery_color+="${ret}${lp_battery}${_LP_PERCENT}${NO_COL}"
+        fi
     fi
 }
 
